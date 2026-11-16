@@ -1661,153 +1661,85 @@ do
 		end
 
 		if SubmergedExitBusy then
-			local deadline = os.clock() + 25
+			local deadline = os.clock() + 35
 			repeat
 				task.wait(0.25)
 				character = plr.Character
 				root = character and character:FindFirstChild("HumanoidRootPart")
 			until not SubmergedExitBusy or os.clock() >= deadline
-
 			return root ~= nil and root.Position.Y > -1000
 				and (root.Position - CastleOnSeaPosition).Magnitude < 1500
 		end
 
 		SubmergedExitBusy = true
 		local ok, reachedCastle = pcall(function()
-			local worker
-			local nearestWorkerDistance = math.huge
-			for _, candidate in ipairs(workspace:GetDescendants()) do
-				if candidate.Name == "Submarine Worker2" or candidate.Name == "Submarine Worker" or candidate.Name == "SubmarineWorker" then
-					local npcRoot
-					if candidate:IsA("Model") then
-						npcRoot = candidate:FindFirstChild("HumanoidRootPart")
-							or candidate.PrimaryPart
-							or candidate:FindFirstChildWhichIsA("BasePart", true)
-					elseif candidate:IsA("BasePart") then
-						npcRoot = candidate
-					end
+			-- Usa o mesmo RemoteFunction e as mesmas operações do controller oficial.
+			local replicatedStorage = game:GetService("ReplicatedStorage")
+			local modules = replicatedStorage:WaitForChild("Modules")
+			local net = modules:WaitForChild("Net")
+			local transportation = net:WaitForChild("RF/SubmarineTransportation")
 
-					if npcRoot then
-						local distance = (root.Position - npcRoot.Position).Magnitude
-						if distance < nearestWorkerDistance then
-							nearestWorkerDistance = distance
-							worker = candidate
-						end
+			if not transportation:IsA("RemoteFunction") then
+				error("RF/SubmarineTransportation não é RemoteFunction")
+			end
+
+			local available = transportation:InvokeServer("GetAvailableLocations")
+			if available == -1 then
+					warn("[Bugnana Hub] O jogo bloqueou o submarino: termine o combate antes de viajar.")
+					return false
+			end
+			if type(available) ~= "table" then
+				error("GetAvailableLocations retornou " .. typeof(available))
+			end
+
+			local castleName
+			for _, destination in pairs(available) do
+				if type(destination) == "table" and type(destination.Name) == "string" then
+					local normalized = string.lower(destination.Name)
+					if normalized == "castle on the sea" or normalized == "castle" then
+						castleName = destination.Name
+						break
 					end
 				end
 			end
-
-			if not worker then
-				warn("[Bugnana Hub] Submarine Worker da Submerged Island não encontrado.")
-				return false
+			if not castleName then
+				local names = {}
+				for _, destination in pairs(available) do
+					if type(destination) == "table" and destination.Name then
+						table.insert(names, tostring(destination.Name))
+					end
+				end
+				error("Castle on the Sea não está disponível. Destinos: " .. table.concat(names, ", "))
 			end
 
-			local prompt = worker:FindFirstChildWhichIsA("ProximityPrompt", true)
-			local clickDetector = worker:FindFirstChildWhichIsA("ClickDetector", true)
-			local interacted = false
-			if prompt and type(fireproximityprompt) == "function" then
-				interacted = pcall(fireproximityprompt, prompt)
-			end
-			if not interacted and clickDetector and type(fireclickdetector) == "function" then
-				interacted = pcall(fireclickdetector, clickDetector)
-			end
-			if not interacted then
-				warn("[Bugnana Hub] Não consegui acionar a interação do Submarine Worker.")
-				return false
-			end
+			-- Mesmo argumento usado pelo SubmarineTransportationController:
+			-- InvokeAsync("InitiateTeleport", destinoSelecionado).
+			local teleportResult = transportation:InvokeServer("InitiateTeleport", castleName)
+			warn("[Bugnana Hub] Solicitação oficial de viagem enviada para " .. castleName .. ". Resultado: " .. tostring(teleportResult))
 
-			local playerGui = plr:FindFirstChildOfClass("PlayerGui")
-			local mainGui = playerGui and playerGui:FindFirstChild("Main")
-			local dialogue = (playerGui and playerGui:FindFirstChild("Dialogue", true))
-				or (mainGui and mainGui:FindFirstChild("Dialogue", true))
-			local acceptedRide = false
-
-			for attempt = 1, 20 do
+			local deadline = os.clock() + 35
+			repeat
 				task.wait(0.5)
-				if not dialogue then
-					local currentGui = plr:FindFirstChildOfClass("PlayerGui")
-					local currentMain = currentGui and currentGui:FindFirstChild("Main")
-					dialogue = (currentGui and currentGui:FindFirstChild("Dialogue", true))
-						or (currentMain and currentMain:FindFirstChild("Dialogue", true))
-				end
 				character = plr.Character
 				root = character and character:FindFirstChild("HumanoidRootPart")
-
 				if root and root.Position.Y > -1000
 					and (root.Position - CastleOnSeaPosition).Magnitude < 1500 then
 					return true
 				end
-
-				local dialogueVisible = false
-				if dialogue then
-					if dialogue:IsA("ScreenGui") then
-						dialogueVisible = dialogue.Enabled
-					elseif dialogue:IsA("GuiObject") then
-						dialogueVisible = dialogue.Visible
-					end
-				end
-				if dialogue and dialogueVisible then
-					local castleButton
-					local continueButton
-
-					for _, guiObject in ipairs(dialogue:GetDescendants()) do
-						if (guiObject:IsA("TextButton") or guiObject:IsA("ImageButton")) and guiObject.Visible then
-							local buttonText = guiObject:IsA("TextButton") and guiObject.Text or ""
-							if buttonText == "" then
-								local label = guiObject:FindFirstChildWhichIsA("TextLabel", true)
-								buttonText = label and label.Text or guiObject.Name
-							end
-
-							buttonText = string.lower(tostring(buttonText))
-							if string.find(buttonText, "castle") then
-								castleButton = guiObject
-							elseif not acceptedRide and (buttonText == "yes"
-								or string.find(buttonText, "take a ride")
-								or string.find(buttonText, "travel")
-								or string.find(buttonText, "continue")) then
-								continueButton = guiObject
-							end
-						end
-					end
-
-					-- Prioriza Castle; nunca escolhe Tiki como destino intermediário.
-					local buttonToClick = castleButton or continueButton
-					if buttonToClick then
-						pcall(function()
-							buttonToClick:Activate()
-						end)
-						if castleButton then
-							acceptedRide = true
-						end
-					end
-				end
-
-				if attempt == 10 and dialogue and not dialogueVisible then
-					if prompt and type(fireproximityprompt) == "function" then
-						pcall(fireproximityprompt, prompt)
-					elseif clickDetector and type(fireclickdetector) == "function" then
-						pcall(fireclickdetector, clickDetector)
-					end
-				end
-			end
-
-			character = plr.Character
-			root = character and character:FindFirstChild("HumanoidRootPart")
-			return root ~= nil and root.Position.Y > -1000
-				and (root.Position - CastleOnSeaPosition).Magnitude < 1500
+			until os.clock() >= deadline
+			return false
 		end)
 
 		SubmergedExitBusy = false
 		if not ok then
 			SubmergedExitCooldownUntil = os.clock() + 8
-			warn("[Bugnana Hub] Falha ao interagir com o Submarine Worker: " .. tostring(reachedCastle))
+			warn("[Bugnana Hub] Falha no transporte oficial: " .. tostring(reachedCastle))
 		elseif not reachedCastle then
 			SubmergedExitCooldownUntil = os.clock() + 8
-			warn("[Bugnana Hub] Não consegui confirmar a chegada ao Castle on the Sea.")
+			warn("[Bugnana Hub] Transporte solicitado, mas não confirmei chegada ao Castle on the Sea.")
 		else
 			SubmergedExitCooldownUntil = 0
 		end
-
 		return ok and reachedCastle == true
 	end
 

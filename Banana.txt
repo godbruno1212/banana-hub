@@ -1646,6 +1646,157 @@ do
 			end
 		end
 	end
+
+	-- Sai da Submerged Island pelo Submarine Worker e escolhe Castle on the Sea.
+	local SubmergedExitBusy = false
+	local CastleOnSeaPosition = Vector3.new(-5036, 315, -3179)
+
+	local function ExitSubmergedToCastle()
+		local character = plr.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if not root or not sea3 or root.Position.Y >= -1000 then
+			return true
+		end
+
+		if SubmergedExitBusy then
+			local deadline = os.clock() + 25
+			repeat
+				task.wait(0.25)
+				character = plr.Character
+				root = character and character:FindFirstChild("HumanoidRootPart")
+			until not SubmergedExitBusy or os.clock() >= deadline
+
+			return root ~= nil and root.Position.Y > -1000
+				and (root.Position - CastleOnSeaPosition).Magnitude < 1500
+		end
+
+		SubmergedExitBusy = true
+		local ok, reachedCastle = pcall(function()
+			local worker
+			local nearestWorkerDistance = math.huge
+			for _, candidate in ipairs(workspace:GetDescendants()) do
+				if candidate.Name == "Submarine Worker" or candidate.Name == "SubmarineWorker" then
+					local npcRoot
+					if candidate:IsA("Model") then
+						npcRoot = candidate:FindFirstChild("HumanoidRootPart")
+							or candidate.PrimaryPart
+							or candidate:FindFirstChildWhichIsA("BasePart", true)
+					elseif candidate:IsA("BasePart") then
+						npcRoot = candidate
+					end
+
+					if npcRoot then
+						local distance = (root.Position - npcRoot.Position).Magnitude
+						if distance < nearestWorkerDistance then
+							nearestWorkerDistance = distance
+							worker = candidate
+						end
+					end
+				end
+			end
+
+			if not worker then
+				warn("[Bugnana Hub] Submarine Worker da Submerged Island não encontrado.")
+				return false
+			end
+
+			local prompt = worker:FindFirstChildWhichIsA("ProximityPrompt", true)
+			local clickDetector = worker:FindFirstChildWhichIsA("ClickDetector", true)
+
+			if prompt then
+				fireproximityprompt(prompt)
+			elseif clickDetector then
+				fireclickdetector(clickDetector)
+			else
+				warn("[Bugnana Hub] Interação do Submarine Worker não encontrada.")
+				return false
+			end
+
+			local playerGui = plr:FindFirstChildOfClass("PlayerGui")
+			local mainGui = playerGui and playerGui:FindFirstChild("Main")
+			local dialogue = mainGui and mainGui:FindFirstChild("Dialogue")
+			local acceptedRide = false
+
+			for attempt = 1, 14 do
+				task.wait(0.5)
+				if not dialogue then
+					local currentGui = plr:FindFirstChildOfClass("PlayerGui")
+					local currentMain = currentGui and currentGui:FindFirstChild("Main")
+					dialogue = currentMain and currentMain:FindFirstChild("Dialogue")
+				end
+				character = plr.Character
+				root = character and character:FindFirstChild("HumanoidRootPart")
+
+				if root and root.Position.Y > -1000
+					and (root.Position - CastleOnSeaPosition).Magnitude < 1500 then
+					return true
+				end
+
+				if dialogue and dialogue.Visible then
+					local castleButton
+					local continueButton
+
+					for _, guiObject in ipairs(dialogue:GetDescendants()) do
+						if (guiObject:IsA("TextButton") or guiObject:IsA("ImageButton")) and guiObject.Visible then
+							local buttonText = guiObject:IsA("TextButton") and guiObject.Text or ""
+							if buttonText == "" then
+								local label = guiObject:FindFirstChildWhichIsA("TextLabel", true)
+								buttonText = label and label.Text or ""
+							end
+
+							buttonText = string.lower(tostring(buttonText))
+							if string.find(buttonText, "castle") then
+								castleButton = guiObject
+								break
+							elseif not acceptedRide and (buttonText == "yes"
+								or string.find(buttonText, "take a ride")
+								or string.find(buttonText, "travel")
+								or string.find(buttonText, "continue")) then
+								continueButton = guiObject
+							end
+						end
+					end
+
+					local buttonToClick = castleButton or continueButton
+					if buttonToClick then
+						pcall(function()
+							buttonToClick:Activate()
+						end)
+						if castleButton then
+							acceptedRide = true
+						end
+					end
+				end
+
+				if attempt == 7 and dialogue and not dialogue.Visible then
+					if prompt then
+						pcall(function()
+							fireproximityprompt(prompt)
+						end)
+					elseif clickDetector then
+						pcall(function()
+							fireclickdetector(clickDetector)
+						end)
+					end
+				end
+			end
+
+			character = plr.Character
+			root = character and character:FindFirstChild("HumanoidRootPart")
+			return root ~= nil and root.Position.Y > -1000
+				and (root.Position - CastleOnSeaPosition).Magnitude < 1500
+		end)
+
+		SubmergedExitBusy = false
+		if not ok then
+			warn("[Bugnana Hub] Falha ao interagir com o Submarine Worker: " .. tostring(reachedCastle))
+		elseif not reachedCastle then
+			warn("[Bugnana Hub] Não consegui confirmar a chegada ao Castle on the Sea.")
+		end
+
+		return ok and reachedCastle == true
+	end
+
 	_tp = function(p53)
 		local cFrame3
 
@@ -1666,6 +1817,19 @@ do
 		end
 
 		local HumanoidRootPart = plr.Character.HumanoidRootPart
+
+		getgenv().OnFarm = false
+		-- Qualquer função que use _tp para sair da ilha submersa passa primeiro pelo NPC.
+		if sea3 and HumanoidRootPart.Position.Y < -1000 and cFrame3.Position.Y > -1000 then
+			if not ExitSubmergedToCastle() then
+				return
+			end
+
+			if not plr.Character or not plr.Character:FindFirstChild("HumanoidRootPart") then
+				return
+			end
+			HumanoidRootPart = plr.Character.HumanoidRootPart
+		end
 
 		getgenv().OnFarm = false
 		pcall(function()
@@ -1750,7 +1914,25 @@ TeleportToTarget = function(p55)
 	task.wait(0.1)
 end
 notween = function(p56)
-	plr.Character.HumanoidRootPart.CFrame = p56
+	local target = Convert_CFrame(p56)
+	local character = plr.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not target or not root then
+		return
+	end
+
+	if sea3 and root.Position.Y < -1000 and target.Position.Y > -1000 then
+		if not ExitSubmergedToCastle() then
+			return
+		end
+		character = plr.Character
+		root = character and character:FindFirstChild("HumanoidRootPart")
+		if not root then
+			return
+		end
+	end
+
+	root.CFrame = target
 end
 
 do
@@ -2278,7 +2460,7 @@ end
 
 local lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/bloxfruitsnokey/Banana/refs/heads/main/Banana/ui.luau"))()
 local v237 = lib:CreateWindow({
-	Title = "Banana Hub",
+	Title = "Bugnana Hub",
 	Subtitle = "Blox Fruit Script",
 	Image = "rbxassetid://5009915795"
 })
@@ -2820,9 +3002,20 @@ do
 							end
 
 							task.wait(1)
-							pcall(function()
-								game:GetService("ReplicatedStorage").Modules.Net:FindFirstChild("RF/SubmarineWorkerSpeak"):InvokeServer(unpack({ "TravelToSubmergedIsland" }))
-							end)
+							local ReplicatedStorage = game:GetService("ReplicatedStorage")
+							local Modules = ReplicatedStorage:FindFirstChild("Modules")
+							local Net = Modules and Modules:FindFirstChild("Net")
+							local SubmarineWorkerSpeak = Net and Net:FindFirstChild("RF/SubmarineWorkerSpeak")
+
+							if SubmarineWorkerSpeak then
+								pcall(function()
+									SubmarineWorkerSpeak:InvokeServer("AskKilledTikiBoss")
+								end)
+								task.wait(0.5)
+								pcall(function()
+									SubmarineWorkerSpeak:InvokeServer("TravelToSubmergedIsland")
+								end)
+							end
 
 							local now = tick()
 
@@ -2840,8 +3033,11 @@ do
 							end
 
 							task.wait(2)
-							u286 = true
+							u286 = v293()
 							u287 = false
+							if not u286 and _G.Level then
+								task.wait(5)
+							end
 						elseif v323 or Value < 2600 or not World3 then
 							u286 = true
 							u287 = false
@@ -3990,7 +4186,16 @@ do
 		local s12 = ""
 
 		while wait(1) do
-			local v426 = (game:GetService("ReplicatedStorage"):FindFirstChild("Diablo") or game:GetService("ReplicatedStorage"):FindFirstChild("Deandre") or game:GetService("ReplicatedStorage"):FindFirstChild("Urban") or game:GetService("Workspace").Enemies:FindFirstChild("Diablo") or game:GetService("Workspace").Enemies:FindFirstChild("Deandre") or game:GetService("Workspace").Enemies:FindFirstChild("Urban")) and "✅" or "❌"
+			local v426 = (function()
+				for _, elite in ipairs(workspace.Enemies:GetChildren()) do
+					if (elite.Name == "Diablo" or elite.Name == "Deandre"
+						or elite.Name == "Urban" or elite.Name == "Tyrant of the Skies")
+						and t9.Alive(elite) then
+						return true
+					end
+				end
+				return false
+			end)() and "✅" or "❌"
 			local response = game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("EliteHunter", "Progress")
 
 			if v426 ~= s12 then
@@ -4024,7 +4229,8 @@ do
 						local v431, v432, v433 = pairs({
 							"Diablo",
 							"Urban",
-							"Deandre"
+							"Deandre",
+							"Tyrant of the Skies"
 						})
 						local v434 = geniter(v431, v432, v433)
 
@@ -4046,36 +4252,15 @@ do
 
 						if v430 then
 							local v437
-							local v438, v439, v440 = pairs(replicated:GetChildren())
-							local v441 = geniter(v438, v439, v440)
-
-							while true do
-								local v442 = table.pack(v441())
-
-								if not v442[1] then
-									break
-								end
-
-								local v443 = v442[3]
-
-								if v443.Name == v430 and v443:FindFirstChild("HumanoidRootPart") then
-									v437 = v443
-
+							for _, elite in ipairs(Enemies:GetChildren()) do
+								if elite.Name == v430 and t9.Alive(elite)
+									and elite:FindFirstChild("HumanoidRootPart") then
+									v437 = elite
 									break
 								end
 							end
 
-							local v444, v445, v446 = pairs(Enemies:GetChildren())
-
-							for _, v1 in v444, v445, v446 do
-								if v1.Name == v430 and t9.Alive(v1) then
-									v437 = v1
-
-									break
-								end
-							end
-
-							if v437 and v437:FindFirstChild("HumanoidRootPart") then
+							if v437 and t9.Alive(v437) and v437:FindFirstChild("HumanoidRootPart") then
 								_tp(v437.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
 
 								while true do
@@ -4083,7 +4268,7 @@ do
 									t9.Kill(v437, _G.FarmEliteHunt)
 
 									if _G.FarmEliteHunt then
-										if not v437.Parent or v437.Humanoid.Health <= 0 or not Quest.Visible then
+										if not v437.Parent or not t9.Alive(v437) or not Quest.Visible then
 											break
 										end
 									else
@@ -4097,12 +4282,13 @@ do
 							replicated.Remotes.CommF_:InvokeServer("AbandonQuest")
 						end
 					else
+						if World3 then
+							TeleportToTarget(CFrame.new(-5046, 314, -2960))
+						end
 						local response = replicated.Remotes.CommF_:InvokeServer("EliteHunter")
 
-						if response == nil or string.find(response, "Cooldown") then
+						if response == nil or (type(response) == "string" and string.find(response, "Cooldown")) then
 							wait(10)
-
-							return
 						end
 
 						task.wait(1)
@@ -4167,7 +4353,8 @@ do
 							local v463, v464, v465 = pairs({
 								"Diablo",
 								"Urban",
-								"Deandre"
+								"Deandre",
+								"Tyrant of the Skies"
 							})
 							local v466 = geniter(v463, v464, v465)
 
@@ -4189,36 +4376,15 @@ do
 
 							if v462 then
 								local v469
-								local v470, v471, v472 = pairs(replicated:GetChildren())
-								local v473 = geniter(v470, v471, v472)
-
-								while true do
-									local v474 = table.pack(v473())
-
-									if not v474[1] then
-										break
-									end
-
-									local v475 = v474[3]
-
-									if v475.Name == v462 and v475:FindFirstChild("HumanoidRootPart") then
-										v469 = v475
-
+								for _, elite in ipairs(workspace.Enemies:GetChildren()) do
+									if elite.Name == v462 and t9.Alive(elite)
+										and elite:FindFirstChild("HumanoidRootPart") then
+										v469 = elite
 										break
 									end
 								end
 
-								local v476, v477, v478 = pairs(workspace.Enemies:GetChildren())
-
-								for _, v1 in v476, v477, v478 do
-									if v1.Name == v462 and t9.Alive(v1) then
-										v469 = v1
-
-										break
-									end
-								end
-
-								if v469 and v469:FindFirstChild("HumanoidRootPart") then
+								if v469 and t9.Alive(v469) and v469:FindFirstChild("HumanoidRootPart") then
 									_tp(v469.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
 
 									while true do
@@ -4226,7 +4392,7 @@ do
 										t9.Kill(v469, _G.FarmEliteH)
 
 										if _G.FarmEliteH then
-											if not v469.Parent or v469.Humanoid.Health <= 0 or not Quest.Visible then
+											if not v469.Parent or not t9.Alive(v469) or not Quest.Visible then
 												break
 											end
 										else
@@ -4243,9 +4409,12 @@ do
 								v450()
 							end
 						else
+							if World3 then
+								TeleportToTarget(CFrame.new(-5046, 314, -2960))
+							end
 							local response = replicated.Remotes.CommF_:InvokeServer("EliteHunter")
 
-							if response == nil or string.find(response, "Cooldown") then
+							if response == nil or (type(response) == "string" and string.find(response, "Cooldown")) then
 								v450()
 
 								return
@@ -5516,12 +5685,52 @@ end)
 GRP_Main_Farm_Boss = t15.Main:AddLeftGroupbox("Farm Boss")
 BossDropdown = GRP_Main_Farm_Boss:AddDropdown("Select_Boss", {
 	Text = "Select Boss",
-	Values = BossList,
-	Default = 1,
+	Values = {},
 	Callback = function(p115)
 		_G.FindBoss = p115
 	end
 })
+
+-- Atualiza o Select Boss para mostrar somente bosses vivos no mapa atual.
+task.spawn(function()
+	local lastBossList = nil
+
+	while true do
+		pcall(function()
+			local aliveBosses = {}
+			local seenBosses = {}
+
+			for _, enemy in ipairs(workspace.Enemies:GetChildren()) do
+				if table.find(BossList, enemy.Name)
+					and t9.Alive(enemy)
+					and enemy:FindFirstChild("HumanoidRootPart")
+					and not seenBosses[enemy.Name] then
+					seenBosses[enemy.Name] = true
+					table.insert(aliveBosses, enemy.Name)
+				end
+			end
+
+			table.sort(aliveBosses)
+			local currentBossList = table.concat(aliveBosses, "|")
+
+			if currentBossList ~= lastBossList then
+				local selectedBoss = BossDropdown:GetValue()
+				BossDropdown:GetNewList(aliveBosses)
+
+				if selectedBoss and table.find(aliveBosses, selectedBoss) then
+					BossDropdown:SetValue(selectedBoss)
+				else
+					_G.FindBoss = nil
+				end
+
+				lastBossList = currentBossList
+			end
+		end)
+
+		task.wait(1)
+	end
+end)
+
 FarmBoss = GRP_Main_Farm_Boss:AddToggle("Auto_Farm_Boss", {
 	Text = "Auto Farm Boss",
 	Default = false,
@@ -28608,8 +28817,9 @@ end
 
 GRP_Raids_Dungeon_Event_Raiding = t15.Raids:AddLeftGroupbox("Dungeon Event / Raiding")
 
+local RaidChipDropdown
 do
-	Q = GRP_Raids_Dungeon_Event_Raiding:AddDropdown("Select_Chip", {
+	RaidChipDropdown = GRP_Raids_Dungeon_Event_Raiding:AddDropdown("Select_Chip", {
 		Text = "Select Chip",
 		Values = {
 			"Flame",
@@ -28632,13 +28842,15 @@ do
 	})
 end
 
-Q = GRP_Raids_Dungeon_Event_Raiding:AddToggle("Auto_Select_Dungeon_Chip", {
+local AutoSelectDungeonToggle = GRP_Raids_Dungeon_Event_Raiding:AddToggle("Auto_Select_Dungeon_Chip", {
 	Text = "Auto Select Dungeon Chip",
 	Default = false,
 	Callback = function(p303)
 		_G.AutoSelectDungeon = p303
 	end
 })
+local HasLoadedRaidFruit
+
 GRP_Raids_Dungeon_Event_Raiding:AddToggle("Get_Fruit_In_Inventory_Below_1M", {
 	Text = "Get Fruit In Inventory Below 1M",
 	Default = false,
@@ -28647,102 +28859,213 @@ GRP_Raids_Dungeon_Event_Raiding:AddToggle("Get_Fruit_In_Inventory_Below_1M", {
 	end
 })
 
-do
-	spawn(function()
-		while wait() do
+task.spawn(function()
+	while task.wait(5) do
+		if getgenv().AutoGetFruit and not GetBP("Special Microchip") and not HasLoadedRaidFruit() then
 			pcall(function()
-				if getgenv().AutoGetFruit then
-					for _, v1 in ipairs({
-						"Rocket-Rocket",
-						"Spin-Spin",
-						"Chop-Chop",
-						"Spring-Spring",
-						"Bomb-Bomb",
-						"Smoke-Smoke",
-						"Spike-Spike",
-						"Flame-Flame",
-						"Falcon-Falcon",
-						"Ice-Ice",
-						"Sand-Sand",
-						"Dark-Dark",
-						"Ghost-Ghost",
-						"Diamond-Diamond",
-						"Light-Light",
-						"Rubber-Rubber",
-						"Barrier-Barrier"
-					}) do
-						game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer(unpack({
-							"LoadFruit",
-							v1
-						}))
+				local response = ReplicatedStorage2.Remotes.CommF_:InvokeServer("GetFruits")
+				if type(response) ~= "table" then
+					return
+				end
+
+				local candidates = {}
+				for _, fruit in pairs(response) do
+					local price = type(fruit) == "table" and tonumber(fruit.Price)
+					if type(fruit) == "table" and type(fruit.Name) == "string"
+						and price and price <= 1000000 then
+						table.insert(candidates, {Name = fruit.Name, Price = price})
+					end
+				end
+
+				table.sort(candidates, function(a, b)
+					return a.Price < b.Price
+				end)
+
+				for _, fruit in ipairs(candidates) do
+					if not GetBP(fruit.Name) then
+						ReplicatedStorage2.Remotes.CommF_:InvokeServer("LoadFruit", fruit.Name)
+						task.wait(0.6)
+					end
+					if GetBP(fruit.Name) then
+						break
 					end
 				end
 			end)
 		end
+	end
+end)
+
+local RaidCommF = ReplicatedStorage2.Remotes.CommF_
+local RaidChipNames = {
+	"Flame", "Ice", "Quake", "Light", "Dark", "String", "Rumble",
+	"Magma", "Human: Buddha", "Sand", "Bird: Phoenix", "Dough"
+}
+
+local function HasRaidChip()
+	return GetBP("Special Microchip") ~= nil
+end
+
+HasLoadedRaidFruit = function()
+	for _, container in ipairs({plr.Backpack, plr.Character}) do
+		if container then
+			for _, item in ipairs(container:GetChildren()) do
+				if item:IsA("Tool")
+					and (item:FindFirstChild("EatRemote") or string.find(item.Name, "Fruit")) then
+					return true
+				end
+			end
+		end
+	end
+	return false
+end
+
+local function GetRaidFruitCandidates(minPrice, maxPrice)
+	local ok, response = pcall(function()
+		return RaidCommF:InvokeServer("GetFruits")
 	end)
+	if not ok or type(response) ~= "table" then
+		return {}
+	end
+
+	local candidates = {}
+	for _, fruit in pairs(response) do
+		local price = type(fruit) == "table" and tonumber(fruit.Price)
+		local name = type(fruit) == "table" and fruit.Name
+		if type(name) == "string" and price
+			and price >= (minPrice or 0)
+			and price <= (maxPrice or math.huge) then
+			table.insert(candidates, {Name = name, Price = price})
+		end
+	end
+
+	table.sort(candidates, function(a, b)
+		return a.Price < b.Price
+	end)
+	return candidates
+end
+
+local function LoadRaidFruit(minPrice, maxPrice)
+	for _, fruit in ipairs(GetRaidFruitCandidates(minPrice, maxPrice)) do
+		if GetBP(fruit.Name) then
+			return true, fruit.Name
+		end
+
+		local ok = pcall(function()
+			RaidCommF:InvokeServer("LoadFruit", fruit.Name)
+		end)
+		if ok then
+			task.wait(0.6)
+			if GetBP(fruit.Name) then
+				return true, fruit.Name
+			end
+		end
+	end
+	return (minPrice or 0) == 0 and HasLoadedRaidFruit()
+end
+
+local function BuyRaidChipWithBeli()
+	if HasRaidChip() then
+		return true
+	end
+	if not _G.SelectChip or not table.find(RaidChipNames, _G.SelectChip) then
+		return false
+	end
+
+	pcall(function()
+		RaidCommF:InvokeServer("RaidsNpc", "Select", _G.SelectChip)
+	end)
+	task.wait(0.5)
+	return HasRaidChip()
+end
+
+local function BuyRaidChipWithFruit()
+	if HasRaidChip() then
+		return true
+	end
+	if not _G.SelectChip or not table.find(RaidChipNames, _G.SelectChip) then
+		return false
+	end
+
+	-- Phoenix e Dough usam chip avançado: exigem fruta física acima de 1M.
+	local isAdvancedRaid = _G.SelectChip == "Dough" or _G.SelectChip == "Bird: Phoenix"
+	local minPrice = isAdvancedRaid and 1000001 or 0
+	local maxPrice = math.huge
+	local loaded = LoadRaidFruit(minPrice, maxPrice)
+	if not loaded then
+		return false
+	end
+
+	pcall(function()
+		RaidCommF:InvokeServer("RaidsNpc", "Select", _G.SelectChip)
+	end)
+	task.wait(0.5)
+	return HasRaidChip()
 end
 
 GRP_Raids_Dungeon_Event_Raiding:AddButton({
 	Text = "Buy Dungeon Chips [Beli]",
 	Func = function()
+		BuyRaidChipWithBeli()
 	end
 })
 GRP_Raids_Dungeon_Event_Raiding:AddButton({
 	Text = "Buy Dungeon Chips [Devil Fruit]",
 	Func = function()
+		BuyRaidChipWithFruit()
 	end
 })
 
-do
-	AutoChipBeli = GRP_Raids_Dungeon_Event_Raiding:AddToggle("Auto_Buy_Chip_[Beli]", {
-		Text = "Auto Buy Chip [Beli]",
-		Default = false,
-		Callback = function()
-		end
-	})
-end
+AutoChipBeli = GRP_Raids_Dungeon_Event_Raiding:AddToggle("Auto_Buy_Chip_[Beli]", {
+	Text = "Auto Buy Chip [Beli]",
+	Default = false,
+	Callback = function(p305)
+		_G.AutoChipBeli = p305
+	end
+})
 
-do
-	task.spawn(function()
-		while task.wait(1) do
-			if _G.AutoChipBeli then
-				pcall(function()
-					if not GetBP("Special Microchip") then
-						ReplicatedStorage2.Remotes.CommF_:InvokeServer("RaidsNpc", "Select", _G.SelectChip)
-					end
-				end)
-			end
+task.spawn(function()
+	local lastAttempt = 0
+	while task.wait(1) do
+		if _G.AutoChipBeli and not HasRaidChip() and os.clock() - lastAttempt >= 15 then
+			lastAttempt = os.clock()
+			pcall(BuyRaidChipWithBeli)
 		end
-	end)
-end
+	end
+end)
 
 AutoChipFruit = GRP_Raids_Dungeon_Event_Raiding:AddToggle("Auto_Buy_Chip_[Devil_Fruit]", {
 	Text = "Auto Buy Chip [Devil Fruit]",
 	Default = false,
-	Callback = function(p305)
-		_G.AutoChipFruit = p305
+	Callback = function(p306)
+		_G.AutoChipFruit = p306
 	end
 })
+
 task.spawn(function()
+	local lastAttempt = 0
 	while task.wait(1) do
-		if _G.AutoChipFruit then
+		if _G.AutoChipFruit and not HasRaidChip() and os.clock() - lastAttempt >= 5 then
+			lastAttempt = os.clock()
+			pcall(BuyRaidChipWithFruit)
+		end
+	end
+end)
+
+task.spawn(function()
+	local chipByFruit = {
+		Spider = "String",
+		Buddha = "Human: Buddha",
+		Phoenix = "Bird: Phoenix",
+		Lightning = "Rumble"
+	}
+	while task.wait(2) do
+		if _G.AutoSelectDungeon then
 			pcall(function()
-				if not GetBP("Special Microchip") then
-					local response = ReplicatedStorage2.Remotes.CommF_:InvokeServer("GetFruits")
-					local Name
-
-					for _, v1 in pairs(response) do
-						if v1.Price <= 490000 then
-							Name = v1.Name
-
-							break
-						end
-					end
-
-					if Name then
-						ReplicatedStorage2.Remotes.CommF_:InvokeServer("LoadFruit", tostring(Name))
-						ReplicatedStorage2.Remotes.CommF_:InvokeServer("RaidsNpc", "Select", _G.SelectChip)
-					end
+				local fruitName = plr.Data.DevilFruit.Value
+				local chipName = chipByFruit[fruitName] or fruitName
+				if table.find(RaidChipNames, chipName) and _G.SelectChip ~= chipName then
+					_G.SelectChip = chipName
+					RaidChipDropdown:SetValue(chipName)
 				end
 			end)
 		end
@@ -28765,11 +29088,12 @@ do
 			if _G.Auto_StartRaid and LocalPlayer.PlayerGui.Main.TopHUDList.RaidTimer.Visible == false then
 				if GetBP("Special Microchip") then
 					if World2 then
-						_tp(CFrame.new(-6438.73535, 250.645355, -4501.50684))
+						TeleportToTarget(CFrame.new(-6438.73535, 250.645355, -4501.50684))
+						task.wait(0.5)
 						fireclickdetector(workspace.Map.CircleIsland.RaidSummon2.Button.Main.ClickDetector)
 					elseif World3 then
-						_tp(CFrame.new(-5046, 314, -2960))
-						task.wait(1.5)
+						TeleportToTarget(CFrame.new(-5046, 314, -2960))
+						task.wait(0.5)
 						pcall(function()
 							local Main = workspace.Map["Boat Castle"].RaidSummon2.Button.Main
 
@@ -28915,29 +29239,41 @@ GRP_Raids_Items_Law_Order_Sword = t15.Raids:AddLeftGroupbox("Items Law/Order Swo
 GRP_Raids_Items_Law_Order_Sword:AddButton({
 	Text = "Buy Microchip Law",
 	Func = function()
+		pcall(function()
+			ReplicatedStorage2.Remotes.CommF_:InvokeServer("BlackbeardReward", "Microchip", "2")
+		end)
 	end
 })
 
-do
-	GRP_Raids_Items_Law_Order_Sword:AddButton({
-		Text = "Start Law Raids",
-		Func = function()
-		end
-	})
-end
+GRP_Raids_Items_Law_Order_Sword:AddButton({
+	Text = "Start Law Raids",
+	Func = function()
+		pcall(function()
+			if World2 then
+				TeleportToTarget(CFrame.new(-6438.73535, 250.645355, -4501.50684))
+			end
+			if workspace.Map.CircleIsland.RaidSummon.Button.Main:FindFirstChild("ClickDetector") then
+				fireclickdetector(workspace.Map.CircleIsland.RaidSummon.Button.Main.ClickDetector)
+			end
+		end)
+	end
+})
 
 GRP_Raids_Items_Law_Order_Sword:AddToggle("Auto_Buy_Microchip_Law", {
 	Text = "Auto Buy Microchip Law",
 	Default = false,
 	Callback = function(p310)
-		_G.AutoLawKak = p310
+		getgenv().AutoBuyMicrochipLaw = p310
 	end
 })
 
 do
 	spawn(function()
+		local lastAttempt = 0
 		while task.wait(1) do
-			if getgenv().AutoBuyMicrochipLaw then
+			if getgenv().AutoBuyMicrochipLaw and not GetBP("Microchip")
+				and os.clock() - lastAttempt >= 15 then
+				lastAttempt = os.clock()
 				pcall(function()
 					game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("BlackbeardReward", "Microchip", "2")
 				end)
@@ -28957,7 +29293,7 @@ GRP_Raids_Items_Law_Order_Sword:AddToggle("Auto_Start_Law_Raids", {
 do
 	spawn(function()
 		while task.wait(1) do
-			if getgenv().AutoStartLawRaids then
+			if getgenv().AutoStartLawRaids and GetBP("Microchip") then
 				pcall(function()
 					fireclickdetector(workspace.Map.CircleIsland.RaidSummon.Button.Main.ClickDetector)
 				end)
@@ -29042,10 +29378,10 @@ do
 						if Humanoid2 and HumanoidRootPart2 and Humanoid2.Health > 0 and (HumanoidRootPart2.Position - HumanoidRootPart.Position).Magnitude <= 5000 then
 							while true do
 								task.wait()
-								t9.Kill(child, true)
+								t9.Kill(child, _G.AutoFarmDungeon)
 
 								if _G.AutoFarmDungeon then
-									if not child.Parent or Humanoid2.Health <= 0 then
+									if not child.Parent or not t9.Alive(child) then
 										break
 									end
 								else
@@ -31493,8 +31829,8 @@ do
 end
 
 lib:Notify({
-	Title = "Banana Hub",
-	Description = "Banana Hub comeback",
+	Title = "Bugnana Hub",
+	Description = "Bugnana Hub comeback",
 	Icon = "rbxassetid://5009915795",
 	Duration = 5
 })

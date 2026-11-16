@@ -1647,11 +1647,11 @@ do
 		end
 	end
 
-	-- Sai da Submerged Island reaparecendo no ponto de spawn salvo pelo jogador.
+	-- Sai da Submerged Island acionando o botão Home oficial do Blox Fruits.
 	local SubmergedExitBusy = false
 	local SubmergedExitCooldownUntil = 0
 
-	ExitSubmergedViaCheckpoint = function()
+	ExitSubmergedViaHome = function()
 		local character = plr.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		if not sea3 or not root or root.Position.Y >= -1000 then
@@ -1662,7 +1662,7 @@ do
 		end
 
 		if SubmergedExitBusy then
-			local deadline = os.clock() + 30
+			local deadline = os.clock() + 35
 			repeat
 				task.wait(0.25)
 				character = plr.Character
@@ -1671,50 +1671,39 @@ do
 			return root ~= nil and root.Position.Y > -1000
 		end
 
-		local data = plr:FindFirstChild("Data")
-		local lastSpawn = data and data:FindFirstChild("LastSpawnPoint")
-		if not lastSpawn or tostring(lastSpawn.Value) == "" then
-			warn("[Bugnana Hub] Não consegui ler o checkpoint salvo; não vou alterar seu ponto de spawn.")
+		local playerGui = plr:FindFirstChildOfClass("PlayerGui")
+		local mainGui = playerGui and playerGui:FindFirstChild("Main")
+		local buttonBar = mainGui and mainGui:FindFirstChild("HUDButtonBar")
+		local homeButton = buttonBar and buttonBar:FindFirstChild("HomeButton")
+		if not homeButton or not homeButton:IsA("GuiButton") then
+			warn("[Bugnana Hub] Não encontrei Main.HUDButtonBar.HomeButton; saída cancelada sem alterar o personagem.")
 			return false
 		end
 
 		SubmergedExitBusy = true
-		local oldCharacter = character
-		local ok, respawned = pcall(function()
-			local humanoid = character:FindFirstChildOfClass("Humanoid")
-			if not humanoid or humanoid.Health <= 0 then
-				error("Humanoid não está disponível para retornar ao checkpoint")
-			end
+		local ok, returnedHome = pcall(function()
+			warn("[Bugnana Hub] Acionando o botão Home oficial para voltar ao Home Point salvo.")
+			homeButton:Activate()
 
-			warn("[Bugnana Hub] Retornando ao checkpoint salvo: " .. tostring(lastSpawn.Value))
-			-- O próprio hub já usa ChangeState(15) para reaparecer no spawn definido.
-			humanoid:ChangeState(15)
-			if humanoid.Health > 0 then
-				task.wait(1)
-				if humanoid.Health > 0 then humanoid.Health = 0 end
-			end
-
-			local deadline = os.clock() + 30
+			local deadline = os.clock() + 35
 			repeat
 				task.wait(0.25)
 				character = plr.Character
 				root = character and character:FindFirstChild("HumanoidRootPart")
-			until (character and character ~= oldCharacter and root and root.Position.Y > -1000)
-				or os.clock() >= deadline
+			until (root and root.Position.Y > -1000) or os.clock() >= deadline
 
-			return character ~= nil and character ~= oldCharacter
-				and root ~= nil and root.Position.Y > -1000
+			return root ~= nil and root.Position.Y > -1000
 		end)
 
 		SubmergedExitBusy = false
-		if not ok or not respawned then
+		if not ok or not returnedHome then
 			SubmergedExitCooldownUntil = os.clock() + 5
-			warn("[Bugnana Hub] Não consegui confirmar o retorno ao checkpoint: " .. tostring(respawned))
+			warn("[Bugnana Hub] O botão Home foi acionado, mas não consegui confirmar a saída da Submerged Island: " .. tostring(returnedHome))
 			return false
 		end
 
 		SubmergedExitCooldownUntil = 0
-		warn("[Bugnana Hub] Retorno ao checkpoint confirmado. Continuando a tarefa.")
+		warn("[Bugnana Hub] Retorno pelo Home Point confirmado. Continuando a tarefa.")
 		return true
 	end
 
@@ -1858,9 +1847,9 @@ do
 		local exitedSubmerged = false
 
 		getgenv().OnFarm = false
-		-- Toda tarefa com destino fora da Submerged retorna ao checkpoint salvo antes de continuar.
+		-- Toda tarefa com destino fora da Submerged aciona o Home Point oficial antes de continuar.
 		if sea3 and HumanoidRootPart.Position.Y < -1000 and cFrame3.Position.Y > -1000 then
-			if not ExitSubmergedViaCheckpoint() then
+			if not ExitSubmergedViaHome() then
 				return
 			end
 			exitedSubmerged = true
@@ -1945,7 +1934,7 @@ notween = function(p56)
 
 	if sea3 and root.Position.Y < -1000 and target.Position.Y > -1000 then
 		-- Usa o Worker para sair da ilha e chegar ao Castle antes de continuar.
-		if not ExitSubmergedViaCheckpoint() then
+		if not ExitSubmergedViaHome() then
 			return
 		end
 		character = plr.Character

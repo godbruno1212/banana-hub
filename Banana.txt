@@ -1647,100 +1647,75 @@ do
 		end
 	end
 
-	-- Sai da Submerged Island pelo Submarine Worker e escolhe Castle on the Sea.
+	-- Sai da Submerged Island reaparecendo no ponto de spawn salvo pelo jogador.
 	local SubmergedExitBusy = false
 	local SubmergedExitCooldownUntil = 0
-	local CastleOnSeaPosition = Vector3.new(-5036, 315, -3179)
 
-	ExitSubmergedViaWorker = function()
-		if os.clock() < SubmergedExitCooldownUntil then return false end
+	ExitSubmergedViaCheckpoint = function()
 		local character = plr.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")
-		if not root or not sea3 or root.Position.Y >= -1000 then
+		if not sea3 or not root or root.Position.Y >= -1000 then
 			return true
+		end
+		if os.clock() < SubmergedExitCooldownUntil then
+			return false
 		end
 
 		if SubmergedExitBusy then
-			local deadline = os.clock() + 35
+			local deadline = os.clock() + 30
 			repeat
 				task.wait(0.25)
 				character = plr.Character
 				root = character and character:FindFirstChild("HumanoidRootPart")
 			until not SubmergedExitBusy or os.clock() >= deadline
 			return root ~= nil and root.Position.Y > -1000
-				and (root.Position - CastleOnSeaPosition).Magnitude < 1500
+		end
+
+		local data = plr:FindFirstChild("Data")
+		local lastSpawn = data and data:FindFirstChild("LastSpawnPoint")
+		if not lastSpawn or tostring(lastSpawn.Value) == "" then
+			warn("[Bugnana Hub] Não consegui ler o checkpoint salvo; não vou alterar seu ponto de spawn.")
+			return false
 		end
 
 		SubmergedExitBusy = true
-		local ok, reachedCastle = pcall(function()
-			-- Usa o mesmo RemoteFunction e as mesmas operações do controller oficial.
-			local replicatedStorage = game:GetService("ReplicatedStorage")
-			local modules = replicatedStorage:WaitForChild("Modules")
-			local net = modules:WaitForChild("Net")
-			local transportation = net:WaitForChild("RF/SubmarineTransportation")
-
-			if not transportation:IsA("RemoteFunction") then
-				error("RF/SubmarineTransportation não é RemoteFunction")
+		local oldCharacter = character
+		local ok, respawned = pcall(function()
+			local humanoid = character:FindFirstChildOfClass("Humanoid")
+			if not humanoid or humanoid.Health <= 0 then
+				error("Humanoid não está disponível para retornar ao checkpoint")
 			end
 
-			local available = transportation:InvokeServer("GetAvailableLocations")
-			if available == -1 then
-					warn("[Bugnana Hub] O jogo bloqueou o submarino: termine o combate antes de viajar.")
-					return false
-			end
-			if type(available) ~= "table" then
-				error("GetAvailableLocations retornou " .. typeof(available))
-			end
-
-			local castleName
-			for _, destination in pairs(available) do
-				if type(destination) == "table" and type(destination.Name) == "string" then
-					local normalized = string.lower(destination.Name)
-					if normalized == "sea castle" or normalized == "castle on the sea" then
-						castleName = destination.Name
-						break
-					end
-				end
-			end
-			if not castleName then
-				local names = {}
-				for _, destination in pairs(available) do
-					if type(destination) == "table" and destination.Name then
-						table.insert(names, tostring(destination.Name))
-					end
-				end
-				error("Sea Castle não está disponível. Destinos: " .. table.concat(names, ", "))
+			warn("[Bugnana Hub] Retornando ao checkpoint salvo: " .. tostring(lastSpawn.Value))
+			-- O próprio hub já usa ChangeState(15) para reaparecer no spawn definido.
+			humanoid:ChangeState(15)
+			if humanoid.Health > 0 then
+				task.wait(1)
+				if humanoid.Health > 0 then humanoid.Health = 0 end
 			end
 
-			-- Mesmo argumento usado pelo SubmarineTransportationController:
-			-- InvokeAsync("InitiateTeleport", destinoSelecionado).
-			local teleportResult = transportation:InvokeServer("InitiateTeleport", castleName)
-			warn("[Bugnana Hub] Solicitação oficial de viagem enviada para " .. castleName .. ". Resultado: " .. tostring(teleportResult))
-
-			local deadline = os.clock() + 35
+			local deadline = os.clock() + 30
 			repeat
-				task.wait(0.5)
+				task.wait(0.25)
 				character = plr.Character
 				root = character and character:FindFirstChild("HumanoidRootPart")
-				if root and root.Position.Y > -1000
-					and (root.Position - CastleOnSeaPosition).Magnitude < 1500 then
-					return true
-				end
-			until os.clock() >= deadline
-			return false
+			until (character and character ~= oldCharacter and root and root.Position.Y > -1000)
+				or os.clock() >= deadline
+
+			return character ~= nil and character ~= oldCharacter
+				and root ~= nil and root.Position.Y > -1000
 		end)
 
 		SubmergedExitBusy = false
-		if not ok then
-			SubmergedExitCooldownUntil = os.clock() + 8
-			warn("[Bugnana Hub] Falha no transporte oficial: " .. tostring(reachedCastle))
-		elseif not reachedCastle then
-			SubmergedExitCooldownUntil = os.clock() + 8
-			warn("[Bugnana Hub] Transporte solicitado, mas não confirmei chegada ao Castle on the Sea.")
-		else
-			SubmergedExitCooldownUntil = 0
+		if not ok or not respawned then
+			SubmergedExitCooldownUntil = os.clock() + 5
+			warn("[Bugnana Hub] Não consegui confirmar o retorno ao checkpoint: " .. tostring(respawned))
+			return false
 		end
-		return ok and reachedCastle == true
+
+		SubmergedExitCooldownUntil = 0
+		warn("[Bugnana Hub] Retorno ao checkpoint confirmado. Continuando a tarefa.")
+		return true
 	end
 
 	local ThirdSeaPortalNodes = {
@@ -1883,9 +1858,9 @@ do
 		local exitedSubmerged = false
 
 		getgenv().OnFarm = false
-		-- Toda tarefa com destino fora da Submerged sai pelo Worker e escolhe Castle.
+		-- Toda tarefa com destino fora da Submerged retorna ao checkpoint salvo antes de continuar.
 		if sea3 and HumanoidRootPart.Position.Y < -1000 and cFrame3.Position.Y > -1000 then
-			if not ExitSubmergedViaWorker() then
+			if not ExitSubmergedViaCheckpoint() then
 				return
 			end
 			exitedSubmerged = true
@@ -1970,7 +1945,7 @@ notween = function(p56)
 
 	if sea3 and root.Position.Y < -1000 and target.Position.Y > -1000 then
 		-- Usa o Worker para sair da ilha e chegar ao Castle antes de continuar.
-		if not ExitSubmergedViaWorker() then
+		if not ExitSubmergedViaCheckpoint() then
 			return
 		end
 		character = plr.Character

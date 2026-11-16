@@ -1682,8 +1682,20 @@ do
 
 		SubmergedExitBusy = true
 		local ok, returnedHome = pcall(function()
-			warn("[Bugnana Hub] Acionando o botão Home oficial para voltar ao Home Point salvo.")
-			homeButton:Activate()
+			warn("[Bugnana Hub] Acionando o callback original do botão Home para voltar ao Home Point salvo.")
+			if not homeButton.Visible or not homeButton.Active then
+				error("O botão Home não está visível ou ativo.")
+			end
+
+			if type(getconnections) ~= "function" then
+				error("Este executor não disponibiliza getconnections.")
+			end
+			local connections = getconnections(homeButton.Activated)
+			local homeConnection = connections and connections[1]
+			if not homeConnection or type(homeConnection.Function) ~= "function" or type(homeConnection.Fire) ~= "function" then
+				error("Não foi possível localizar o callback original do botão Home.")
+			end
+			homeConnection:Fire()
 
 			local deadline = os.clock() + 35
 			repeat

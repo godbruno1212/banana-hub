@@ -1677,7 +1677,7 @@ do
 			local worker
 			local nearestWorkerDistance = math.huge
 			for _, candidate in ipairs(workspace:GetDescendants()) do
-				if candidate.Name == "Submarine Worker" or candidate.Name == "SubmarineWorker" then
+				if candidate.Name == "Submarine Worker2" or candidate.Name == "Submarine Worker" or candidate.Name == "SubmarineWorker" then
 					local npcRoot
 					if candidate:IsA("Model") then
 						npcRoot = candidate:FindFirstChild("HumanoidRootPart")

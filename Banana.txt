@@ -1696,7 +1696,7 @@ do
 			for _, destination in pairs(available) do
 				if type(destination) == "table" and type(destination.Name) == "string" then
 					local normalized = string.lower(destination.Name)
-					if normalized == "castle on the sea" or normalized == "castle" then
+					if normalized == "sea castle" or normalized == "castle on the sea" then
 						castleName = destination.Name
 						break
 					end
@@ -1709,7 +1709,7 @@ do
 						table.insert(names, tostring(destination.Name))
 					end
 				end
-				error("Castle on the Sea não está disponível. Destinos: " .. table.concat(names, ", "))
+				error("Sea Castle não está disponível. Destinos: " .. table.concat(names, ", "))
 			end
 
 			-- Mesmo argumento usado pelo SubmarineTransportationController:

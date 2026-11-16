@@ -1652,7 +1652,7 @@ do
 	local SubmergedExitCooldownUntil = 0
 	local CastleOnSeaPosition = Vector3.new(-5036, 315, -3179)
 
-	local function ExitSubmergedViaWorker()
+	ExitSubmergedViaWorker = function()
 		if os.clock() < SubmergedExitCooldownUntil then return false end
 		local character = plr.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")

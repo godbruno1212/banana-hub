@@ -5062,6 +5062,8 @@ do
 		local BoneEnemyNames = {"Reborn Skeleton", "Living Zombie", "Demonic Soul", "Possessed Mummy"}
 		local QuestPosition = CFrame.new(-9516.99316, 172.01718, 6078.46533)
 		local FarmPosition = CFrame.new(-9495.6806640625, 453.58624267578125, 5977.3486328125)
+		local lastBoneError = nil
+		local lastBoneRouteDebug = 0
 		local function GetBoneRoot()
 			local character = LocalPlayer.Character
 			return character and character:FindFirstChild("HumanoidRootPart")
@@ -5084,7 +5086,7 @@ do
 		end
 		while task.wait(0.35) do
 			if _G.AutoFarm_Bone then
-				pcall(function()
+				local boneOk, boneError = pcall(function()
 					local root = GetBoneRoot()
 					if not root then return end
 					local enemy = FindLiveBoneEnemy()
@@ -5115,9 +5117,22 @@ do
 						end
 					else
 						root = GetBoneRoot()
-						if root and (root.Position - FarmPosition.Position).Magnitude > 80 then notween(FarmPosition) end
+						if root and (root.Position - FarmPosition.Position).Magnitude > 80 then
+							if os.clock() - lastBoneRouteDebug >= 5 then
+								lastBoneRouteDebug = os.clock()
+								warn("[Bugnana Bone Debug] Rota chamada | Y=" .. math.floor(root.Position.Y) .. " | sea3=" .. tostring(sea3) .. " | destinoY=" .. math.floor(FarmPosition.Position.Y))
+							end
+							notween(FarmPosition)
+						end
 					end
 				end)
+				if not boneOk then
+					local errorText = tostring(boneError)
+					if errorText ~= lastBoneError then
+						lastBoneError = errorText
+						warn("[Bugnana Bone Debug] Auto Farm Bone error: " .. errorText)
+					end
+				end
 			end
 		end
 	end)

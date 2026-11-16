@@ -1956,9 +1956,9 @@ do
 		getgenv().OnFarm = false
 		-- O Worker da própria Submerged devolve grátis para Tiki; de lá usamos o portal laranja até Castle.
 		if sea3 and HumanoidRootPart.Position.Y < -1000 and cFrame3.Position.Y > -1000 then
-			if not ExitSubmergedViaTiki() then
-				return
-			end
+			-- Sai da água em um salto vertical; o deslocamento horizontal ocorre acima da superfície.
+			HumanoidRootPart.CFrame = CFrame.new(HumanoidRootPart.Position.X, 350, HumanoidRootPart.Position.Z)
+			Part.CFrame = HumanoidRootPart.CFrame
 			exitedSubmerged = true
 
 			if not plr.Character or not plr.Character:FindFirstChild("HumanoidRootPart") then
@@ -2030,9 +2030,17 @@ do
 
 		local Magnitude = (cFrame3.Position - HumanoidRootPart.Position).Magnitude
 		local tweenInfo = TweenInfo.new(Magnitude / (Magnitude <= 15 and (getgenv().TweenSpeedNear or 180) or getgenv().TweenSpeedFar or 150), Enum.EasingStyle.Linear)
+		local tweenTarget = exitedSubmerged and CFrame.new(cFrame3.Position.X, 350, cFrame3.Position.Z) or CFrame.new(cFrame3.Position)
 		local tween = game:GetService("TweenService"):Create(Part, tweenInfo, {
-			CFrame = CFrame.new(cFrame3.Position)
+			CFrame = tweenTarget
 		})
+		if exitedSubmerged then
+			tween.Completed:Connect(function(playbackState)
+				if playbackState == Enum.PlaybackState.Completed and Part and Part.Parent then
+					Part.CFrame = CFrame.new(cFrame3.Position)
+				end
+			end)
+		end
 
 		if plr.Character.Humanoid.Sit == true then
 			Part.CFrame = CFrame.new(Part.Position.X, cFrame3.Y, Part.Position.Z)
@@ -2080,9 +2088,9 @@ notween = function(p56)
 	end
 
 	if sea3 and root.Position.Y < -1000 and target.Position.Y > -1000 then
-		if not ExitSubmergedViaTiki() then
-			return
-		end
+		-- Teleporte instantâneo para cima, sem atravessar a água no trajeto horizontal.
+		root.CFrame = CFrame.new(root.Position.X, 350, root.Position.Z)
+		Part.CFrame = root.CFrame
 		character = plr.Character
 		root = character and character:FindFirstChild("HumanoidRootPart")
 		if not root then
@@ -2796,7 +2804,9 @@ do
 			end
 
 			pcall(function()
-				v263:SetText(statusText)
+				if v263 and type(v263.SetText) == "function" then
+					v263:SetText(statusText)
+				end
 			end)
 		end
 	end)
@@ -2884,7 +2894,7 @@ do
 end
 
 do
-	local v277 = t15.Info:AddLeftGroupbox("Bone"):AddLabel("Bones: Checking...")
+	BoneInfoLabel = t15.Info:AddLeftGroupbox("Bone"):AddLabel("Bones: Checking...")
 
 	task.spawn(function()
 		while task.wait(2) do
@@ -2894,9 +2904,18 @@ do
 
 			if bones and (bones:IsA("IntValue") or bones:IsA("NumberValue")) then
 				status = "Bones: " .. tostring(bones.Value)
+			else
+				local cachedBones = getgenv().__BugnanaBoneCount
+				if cachedBones ~= nil then
+					status = "Bones: " .. tostring(cachedBones)
+				end
 			end
 
-			v277:SetText(status)
+			pcall(function()
+				if BoneInfoLabel and type(BoneInfoLabel.SetText) == "function" then
+					BoneInfoLabel:SetText(status)
+				end
+			end)
 		end
 	end)
 end
@@ -5043,11 +5062,27 @@ do
 	local v523 = GRP_Main_Farming_Bone:AddLabel("")
 
 	spawn(function()
-		while wait(1) do
-			local response = game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("Bones", "Check") or 0
+		while task.wait(2) do
+			local ok, response = pcall(function()
+				local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+				local commF = remotes and remotes:FindFirstChild("CommF_")
+				if not commF then return nil end
+				return commF:InvokeServer("Bones", "Check")
+			end)
 
-			v523:SetText("You Have: " .. tostring(response) .. " Bones")
-			v277:SetText("You Have: " .. tostring(response) .. " Bones")
+			local valueText = ok and response ~= nil and tostring(response) or "Unavailable"
+			if ok and type(response) == "number" then
+				getgenv().__BugnanaBoneCount = response
+			elseif ok and type(response) == "string" then
+				local parsedCount = tonumber(response:match("%d+"))
+				if parsedCount then getgenv().__BugnanaBoneCount = parsedCount end
+			end
+			local statusText = "You Have: " .. valueText .. " Bones"
+			pcall(function()
+				if v523 and type(v523.SetText) == "function" then
+					v523:SetText(statusText)
+				end
+			end)
 		end
 	end)
 end

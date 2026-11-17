@@ -2636,17 +2636,11 @@ do
 
 				if ok then
 					if type(response) == "string" then
-						local countText
-						if #response == 86 then
-							countText = string.sub(response, 39, 39)
-						elseif #response == 87 then
-							countText = string.sub(response, 39, 40)
-						elseif #response == 88 then
-							countText = string.sub(response, 39, 41)
-						end
-						local count = tonumber(countText)
-						if count and count >= 0 and count <= 500 then
-							statusText = "Cake NPCs defeated: " .. count .. "/500"
+						local remaining = tonumber(string.match(response, "<Color=Yellow>(%d+)<Color=/>"))
+						if remaining then
+							remaining = math.clamp(remaining, 0, 500)
+							local defeated = 500 - remaining
+							statusText = "Cake NPCs defeated: " .. defeated .. "/500"
 						else
 							local cleanResponse = string.gsub(response, "%s+", " ")
 							statusText = "Spawner: " .. string.sub(cleanResponse, 1, 90)
@@ -4487,17 +4481,11 @@ do
 				return replicated.Remotes.CommF_:InvokeServer("CakePrinceSpawner")
 			end)
 			if ok and type(response) == "string" then
-				local countText
-				if #response == 86 then
-					countText = string.sub(response, 39, 39)
-				elseif #response == 87 then
-					countText = string.sub(response, 39, 40)
-				elseif #response == 88 then
-					countText = string.sub(response, 39, 41)
-				end
-				local count = tonumber(countText)
-				if count and count >= 0 and count <= 500 then
-					v495:SetText("Cake NPCs defeated: " .. tostring(count) .. "/500")
+				local remaining = tonumber(string.match(response, "<Color=Yellow>(%d+)<Color=/>"))
+				if remaining then
+					remaining = math.clamp(remaining, 0, 500)
+					local defeated = 500 - remaining
+					v495:SetText("Cake NPCs defeated: " .. tostring(defeated) .. "/500")
 				else
 					v495:SetText("Cake spawner: " .. string.sub(response, 1, 70))
 				end
@@ -4657,7 +4645,9 @@ spawn(function()
 		if _G.AutoSpawnCP then
 			pcall(function()
 				local CommF_ = game.ReplicatedStorage.Remotes.CommF_
-				local BigMirror = workspace.Map.CakeLoaf:FindFirstChild("BigMirror")
+				local CakeLoaf = workspace.Map:FindFirstChild("CakeLoaf")
+				local BigMirror = CakeLoaf and CakeLoaf:FindFirstChild("BigMirror")
+				local MirrorOther = BigMirror and BigMirror:FindFirstChild("Other")
 
 				if not BigMirror then
 					return

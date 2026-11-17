@@ -1,3 +1,30 @@
+local BugnanaEnv = (type(getgenv) == "function" and getgenv()) or _G
+local previousBugnanaShutdown = BugnanaEnv.__BugnanaShutdown
+if type(previousBugnanaShutdown) == "function" then
+    pcall(previousBugnanaShutdown)
+end
+
+local BugnanaState = { Running = true, Tasks = {}, Connections = {} }
+local rawTaskSpawn = task.spawn
+
+local function BugnanaSpawn(callback, ...)
+    if not BugnanaState.Running or type(callback) ~= "function" then return nil end
+    local args = table.pack(...)
+    local thread = rawTaskSpawn(function()
+        if BugnanaState.Running then callback(table.unpack(args, 1, args.n)) end
+    end)
+    table.insert(BugnanaState.Tasks, thread)
+    return thread
+end
+
+local function BugnanaConnect(signal, callback)
+    if not BugnanaState.Running then return nil end
+    local connection = signal:Connect(function(...)
+        if BugnanaState.Running then return callback(...) end
+    end)
+    table.insert(BugnanaState.Connections, connection)
+    return connection
+end
 local function geniter(f, s, c)
 	if type(f) ~= "function" then
 		local mt = getmetatable(f)
@@ -1172,7 +1199,7 @@ getInfinity_Ability = function(p37, p38)
 			end
 		end
 	elseif p37 == "Energy" and p38 then
-		plr.Character.Energy.Changed:connect(function()
+		BugnanaConnect(plr.Character.Energy.Changed, function()
 			if p38 then
 				plr.Character.Energy.Value = Energy
 			end
@@ -1211,7 +1238,7 @@ do
 end
 
 do
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait() do
 			if Part and Part.Parent == workspace then
 				if shouldTween then
@@ -1227,7 +1254,7 @@ do
 end
 
 do
-	task.spawn(function()
+	BugnanaSpawn(function()
 		local LocalPlayer = game.Players.LocalPlayer
 
 		while true do
@@ -1922,7 +1949,7 @@ do
 		activeFarmTween = tween
 		activeFarmTweenTarget = cFrame3.Position
 		tween:Play()
-		task.spawn(function()
+		BugnanaSpawn(function()
 			while tween.PlaybackState == Enum.PlaybackState.Playing do
 				if shouldTween then
 					task.wait(0.1)
@@ -2004,7 +2031,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while task.wait() do
 			pcall(function()
 				if _G.Auto_StartRaid or _G.SailBoat_Hydra or _G.WardenBoss or _G.AutoFactory or _G.HighestMirage or _G.HCM or _G.PGB or _G.Leviathan1 or _G.UPGDrago or _G.Complete_Trials or _G.TpDrago_Prehis or _G.BuyDrago or _G.AutoFireFlowers or _G.DT_Uzoth or _G.AutoBerry or _G.Prefully or _G.Prehis_Find or _G.Prehis_Skills or _G.Prehis_DB or _G.Prehis_DE or _G.FarmBlazeEM or _G.Dojoo or _G.CollectPresent or _G.AutoLawKak or _G.TpLab or _G.AutoPhoenixF or _G.AutoFarmChest or _G.AutoHytHallow or _G.LongsWord or _G.BlackSpikey or _G.AutoHolyTorch or _G.TrainDrago or _G.AutoSaber or _G.FarmMastery_Dev or _G.CitizenQuest or _G.AutoEctoplasm or _G.KeysRen or _G.Auto_Rainbow_Haki or _G.obsFarm or _G.AutoBigmom or _G.Doughv2 or _G.AuraBoss or _G.Raiding or _G.Auto_Cavender or _G.TpPly or _G.Bartilo_Quest or _G.Level or _G.FarmEliteHunt or _G.AutoZou or _G.AutoFarm_Bone or getgenv().AutoMaterial or _G.CraftVM or _G.FrozenTP or _G.TPDoor or _G.AcientOne or _G.AutoFarmNear or _G.AutoRaidCastle or _G.DarkBladev3 or _G.AutoFarmRaid or _G.Auto_Cake_Prince or _G.Addealer or _G.TPNpc or _G.TwinHook or _G.FindMirage or _G.FarmChestM or _G.Shark or _G.TerrorShark or _G.Piranha or _G.MobCrew or _G.SeaBeast1 or _G.FishBoat or _G.AutoPole or _G.AutoPoleV2 or _G.Auto_SuperHuman or _G.AutoDeathStep or _G.Auto_SharkMan_Karate or _G.Auto_Electric_Claw or _G.AutoDragonTalon or _G.Auto_Def_DarkCoat or _G.Auto_God_Human or _G.Auto_Tushita or _G.AutoMatSoul or _G.AutoKenVTWO or _G.AutoSerpentBow or _G.AutoFMon or _G.Auto_Soul_Guitar or _G.TPGEAR or _G.AutoSaw or _G.AutoTridentW2 or _G.AutoEvoRace or _G.AutoGetQuestBounty or _G.MarinesCoat or _G.TravelDres or _G.Defeating or _G.DummyMan or _G.Auto_Yama or _G.Auto_SwanGG or _G.SwanCoat or _G.AutoEcBoss or _G.Auto_Mink or _G.Auto_Human or _G.Auto_Skypiea or _G.Auto_Fish or _G.CDK_TS or _G.CDK_YM or _G.CDK or _G.AutoFarmGodChalice or _G.AutoFistDarkness or _G.AutoMiror or _G.Teleport or _G.AutoKilo or _G.AutoGetUsoap or _G.Praying or _G.TryLucky or _G.AutoColShad or _G.AutoUnHaki or _G.Auto_DonAcces or _G.AutoRipIngay or _G.DragoV3 or _G.DragoV1 or _G.SailBoats or NextIs or _G.FarmGodChalice or _G.IceBossRen or senth or senth2 or _G.Lvthan or _G.beasthunter or _G.DangerLV or _G.Relic123 or _G.tweenKitsune or _G.Collect_Ember or _G.AutofindKitIs or _G.snaguine or _G.TwFruits or _G.tweenKitShrine or _G.Tp_LgS or _G.Tp_MasterA or _G.tweenShrine or _G.FarmMastery_G or _G.FarmMastery_S or _G.FarmBoss or _G.AutoFarmAllBoss or _G.AutoFishSlap or _G.FarmTyrant or _G.FarmPhaBinh or _G.AutoSpawnCP or _G.AutoBerryH or _G.AutoChestBP or _G.FarmEliteHop or _G.AutoHop_Dough or _G.AutoDoughKing or _G.AutoAttackDoughKing or _G.StartEvent or _G.AutoMysticIsland or _G.AutoPlayerHunter or _G.SafeMode or _G.AutoKillMob or _G.AutoStartPrehistoric or _G.AutoUnHaki or _G.AutoAttackRipIndra or _G.AutoFarmIsland or _G.AutoFarmDungeon or _G.AutoFarmCandy or _G.AutoTP_Gift or _G.AutoTPGift or _G.AutoTPAndCollect or _G.MasterAutoLevel or _G.MasterAutoCandy or _G.TPFloor1 or _G.TPFloor2 or _G.TPFloor3 or _G.TPFloor4 or _G.AutoMagnetToken then
@@ -2529,12 +2556,42 @@ local t15 = {
 	Shop = v237:AddTab("Shopping"),
 	Misc = v237:AddTab("Miscellaneous")
 }
+local function BugnanaShutdown()
+    if not BugnanaState.Running then return end
+    BugnanaState.Running = false
+    if BugnanaEnv.__BugnanaShutdown == BugnanaShutdown then BugnanaEnv.__BugnanaShutdown = nil end
+
+    for _, connection in ipairs(BugnanaState.Connections) do
+        pcall(function() connection:Disconnect() end)
+    end
+    for _, connection in ipairs(BringConnections) do
+        pcall(function() connection:Disconnect() end)
+    end
+    for _, thread in ipairs(BugnanaState.Tasks) do
+        pcall(task.cancel, thread)
+    end
+    pcall(function()
+        if lib and type(lib.DestroyUI) == "function" then lib.DestroyUI() end
+    end)
+    pcall(function()
+        getgenv().ReadyForGuiLoaded = true
+        getgenv().UIToggled = false
+    end)
+    print("[Bugnana Hub] Script encerrado. Execute a versão atualizada para iniciar novamente.")
+end
+
+BugnanaEnv.__BugnanaShutdown = BugnanaShutdown
+
+t15.Settings:AddLeftGroupbox("Script Control"):AddButton({
+    Text = "Matar script",
+    Func = BugnanaShutdown
+})
 
 lib.ToggleUI()
 
 -- Atalho Ctrl: abre/fecha o menu sem interferir quando estiver digitando.
 local MenuInputService = game:GetService("UserInputService")
-MenuInputService.InputBegan:Connect(function(input, gameProcessed)
+BugnanaConnect(MenuInputService.InputBegan, function(input, gameProcessed)
 	-- Não bloquear Ctrl por gameProcessed: alguns executores/jogos marcam a tecla como processada.
 	if MenuInputService:GetFocusedTextBox() then
 		return
@@ -2576,7 +2633,7 @@ do
 		v239:SetText(dateText .. " - " .. clock .. " [" .. timeZone .. " | " .. countryRegionCode .. "]")
 	end
 
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(1) do
 			pcall(UpdateOS)
 		end
@@ -2594,7 +2651,7 @@ do
 		v249:SetText(string.format("%02d Hour(s) %02d Minute(s) %02d Second(s)", hours, minutes, seconds))
 	end
 
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(1) do
 			pcall(UpdateGameTime)
 		end
@@ -2605,7 +2662,7 @@ local function AddWorldStatus(groupName, statusName, finder)
 	local label = t15.Info:AddLeftGroupbox(groupName):AddLabel("Status: Checking...")
 	local previousStatus = nil
 
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(1) do
 			local ok, found = pcall(finder)
 			local status = not ok and "Unknown" or (found and "✅ Active" or "❌ Not found")
@@ -2643,7 +2700,7 @@ end)
 do
 	local v263 = t15.Info:AddLeftGroupbox("Cake Prince Status"):AddLabel("Spawner: Checking...")
 
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(5) do
 			local statusText = "Spawner: Unavailable"
 			local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
@@ -2709,7 +2766,7 @@ do
 		["9709149680"] = "Moon: 1/5"
 	}
 
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(1) do
 			local ok, status = pcall(function()
 				local sky = game:GetService("Lighting"):FindFirstChildOfClass("Sky")
@@ -2728,7 +2785,7 @@ end
 do
 	local v275 = t15.Info:AddLeftGroupbox("Legendary Sword"):AddLabel("Dealer: Checking...")
 
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(15) do
 			local status = "Dealer: No legendary sword in stock"
 			local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
@@ -2768,7 +2825,7 @@ end
 do
 	BoneInfoLabel = t15.Info:AddLeftGroupbox("Bone"):AddLabel("Bones: Checking...")
 
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(2) do
 			local status = "Bones: N/A"
 			local data = plr:FindFirstChild("Data")
@@ -2808,7 +2865,7 @@ WeaponDropdown = GRP_Main_Select_Weapon:AddDropdown("Select_Weapon", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(0.5) do
 			pcall(function()
 				if _G.ChooseWP == "Melee" then
@@ -3027,7 +3084,7 @@ do
 		return v311(p68)
 	end
 
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(Sec) do
 			if _G.Level then
 				local exitTo
@@ -3260,7 +3317,7 @@ FactoryRaids = GRP_Main_Farming:AddToggle("Auto_Factory_Raid", {
 		_G.AutoFactory = p70
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		pcall(function()
 			if _G.AutoFactory then
@@ -3297,7 +3354,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			if _G.AutoRaidCastle then
 				pcall(function()
@@ -3367,7 +3424,7 @@ Ecto = GRP_Main_Farming:AddToggle("Auto_Farm_Ectoplasm", {
 		_G.AutoEctoplasm = p72
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		pcall(function()
 			if _G.AutoEctoplasm then
@@ -3411,7 +3468,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		if _G.AutoFarmChest then
 			pcall(function()
@@ -3501,7 +3558,7 @@ do
 					end
 
 					u374 = true
-					task.spawn(function()
+					BugnanaSpawn(function()
 						while _G.AutoChestBP do
 							if not LocalPlayer.Character or not LocalPlayer.Character.Parent then
 								break
@@ -3520,7 +3577,7 @@ do
 					end)
 				end
 
-				LocalPlayer.CharacterAdded:Connect(function()
+				BugnanaConnect(LocalPlayer.CharacterAdded, function()
 					v377()
 					task.wait(0.5)
 
@@ -3545,7 +3602,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(0.2) do
 			if _G.StopWhenChalice and (_G.AutoFarmChest or _G.AutoChestBP) then
 				local exitTo
@@ -3678,7 +3735,7 @@ BerryH = GRP_Main_Collect_Berry:AddToggle("Auto_Farm_Berry_+_Hop", {
 	end
 })
 
-task.spawn(function()
+BugnanaSpawn(function()
 	local lastHopAttempt = 0
 	while task.wait(1) do
 		if _G.AutoBerry or _G.AutoBerryH then
@@ -4026,7 +4083,7 @@ do
 			_G.AutoFarmIsland = p87
 		end
 	})
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(0.2) do
 			if _G.AutoFarmIsland and _G.SelectIsland and v414 then
 				local v415 = v414[_G.SelectIsland]
@@ -4083,7 +4140,7 @@ GRP_Main_Farm_Elite_Hunter = t15.Main:AddLeftGroupbox("Farm Elite Hunter")
 do
 	local v423 = GRP_Main_Farm_Elite_Hunter:AddLabel("Elite Progress : 0")
 
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			pcall(function()
 				v423:SetText("Elite Progress : " .. replicated.Remotes.CommF_:InvokeServer("EliteHunter", "Progress"))
@@ -4095,7 +4152,7 @@ end
 do
 	local v424 = GRP_Main_Farm_Elite_Hunter:AddLabel("Status: Not Found")
 
-	spawn(function()
+	BugnanaSpawn(function()
 		local s12 = ""
 
 		while wait(1) do
@@ -4128,7 +4185,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(1) do
 			pcall(function()
 				if _G.FarmEliteHunt then
@@ -4251,7 +4308,7 @@ do
 		until not s13 or v454
 	end
 
-	spawn(function()
+	BugnanaSpawn(function()
 		if task.wait(1) then
 			repeat
 				pcall(function()
@@ -4350,7 +4407,7 @@ GRP_Main_Farm_Rip_Indra:AddToggle("Auto_Attack_Rip_Indra", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			pcall(function()
 				if _G.AutoRipIngay then
@@ -4412,7 +4469,7 @@ HakiCalculate = function(p94)
 		return t24[tostring(p94.BrickColor)]
 	end
 end
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		if _G.AutoUnHaki then
 			pcall(function()
@@ -4495,7 +4552,7 @@ GRP_Main_Farming_Cake = t15.Main:AddLeftGroupbox("Farming Cake")
 do
 	local v495 = GRP_Main_Farming_Cake:AddLabel("Cake NPCs defeated: Checking...")
 
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(5) do
 			local ok, response = pcall(function()
 				return replicated.Remotes.CommF_:InvokeServer("CakePrinceSpawner")
@@ -4527,7 +4584,7 @@ Cake = GRP_Main_Farming_Cake:AddToggle("Auto_Farm_Cake_Prince", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while task.wait() do
 			if _G.Auto_Cake_Prince and not _G.AutoRaidCastle then
 				local exitTo
@@ -4660,7 +4717,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while task.wait(2) do
 		if _G.AutoSpawnCP then
 			pcall(function()
@@ -4695,7 +4752,7 @@ GRP_Main_Farming_Cake:AddToggle("Auto_Dough_King_[Fully]", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait() do
 			if _G.AutoDoughKing then
 				local exitTo
@@ -4814,7 +4871,7 @@ GRP_Main_Farming_Cake:AddToggle("Auto_Farm_Dough_King", {
 		_G.AutoAttackDoughKing = p99
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait() do
 		if _G.AutoAttackDoughKing then
 			local exitTo
@@ -4885,7 +4942,7 @@ do
 		end)
 	end
 
-	spawn(function()
+	BugnanaSpawn(function()
 		while task.wait() do
 			if _G.AutoHop_Dough then
 				local exitTo
@@ -4938,7 +4995,7 @@ GRP_Main_Farming_Bone = t15.Main:AddLeftGroupbox("Farming Bone")
 do
 	local v523 = GRP_Main_Farming_Bone:AddLabel("")
 
-	spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(2) do
 			local ok, response = pcall(function()
 				local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
@@ -4975,7 +5032,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		local LocalPlayer = game.Players.LocalPlayer
 		local BoneEnemyNames = {"Reborn Skeleton", "Living Zombie", "Demonic Soul", "Possessed Mummy"}
 		local QuestPosition = CFrame.new(-9516.99316, 172.01718, 6078.46533)
@@ -5072,7 +5129,7 @@ GRP_Main_Farming_Bone:AddToggle("Auto_Soul_Reaper", {
 		_G.AutoHytHallow = p103
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		if _G.AutoHytHallow then
 			pcall(function()
@@ -5125,7 +5182,7 @@ RanBone = GRP_Main_Farming_Bone:AddToggle("Auto_Random_Bones", {
 		_G.Auto_Random_Bone = p104
 	end
 })
-task.spawn(function()
+BugnanaSpawn(function()
 	while task.wait(3) do
 		if _G.Auto_Random_Bone then
 			pcall(function()
@@ -5146,7 +5203,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			if _G.TryLucky then
 				local cFrame = CFrame.new(-8761.3154296875, 164.85829162598, 6161.1567382813)
@@ -5172,7 +5229,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			if _G.Praying then
 				local cFrame = CFrame.new(-8761.3154296875, 164.85829162598, 6161.1567382813)
@@ -5213,7 +5270,7 @@ GRP_Main_Tyrant_of_the_Skies = t15.Main:AddLeftGroupbox("Tyrant of the Skies")
 do
 	local v538 = GRP_Main_Tyrant_of_the_Skies:AddLabel("Tyrant of the Skies: ")
 
-	spawn(function()
+	BugnanaSpawn(function()
 		pcall(function()
 			while wait(1) do
 				if workspace.Enemies:FindFirstChild("Tyrant of the Skies") then
@@ -5258,7 +5315,7 @@ do
 
 		return n4, n4 == 4
 	end
-	task.spawn(function()
+	BugnanaSpawn(function()
 		local v544 = false
 
 		while task.wait(1) do
@@ -5286,7 +5343,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			if _G.FarmTyrant then
 				pcall(function()
@@ -5450,7 +5507,7 @@ do
 		CFrame.new(-16335.0966796875, 159.33399963378906, 1324.885986328125)
 	}
 
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			if _G.FarmPhaBinh then
 				pcall(function()
@@ -5526,7 +5583,7 @@ Toggle = GRP_Main_Farm_Material:AddToggle("Auto_Farm_Materials", {
 		getgenv().AutoMaterial = p112
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while task.wait(0.5) do
 		if getgenv().AutoMaterial then
 			pcall(function()
@@ -5571,7 +5628,7 @@ BossDropdown = GRP_Main_Farm_Boss:AddDropdown("Select_Boss", {
 })
 
 -- Atualiza o Select Boss para mostrar somente bosses vivos no mapa atual.
-task.spawn(function()
+BugnanaSpawn(function()
 	local lastBossList = nil
 
 	while true do
@@ -5615,7 +5672,7 @@ FarmBoss = GRP_Main_Farm_Boss:AddToggle("Auto_Farm_Boss", {
 	Default = false,
 	Callback = function(p116)
 		_G.FarmBoss = p116
-		spawn(function()
+		BugnanaSpawn(function()
 			while wait(Sec) do
 				if _G.FarmBoss then
 					local exitTo
@@ -5725,7 +5782,7 @@ FarmAllBoss = GRP_Main_Farm_Boss:AddToggle("Auto_Farm_All_Boss", {
 		_G.AutoFarmAllBoss = p118
 	end
 })
-task.spawn(function()
+BugnanaSpawn(function()
 	while task.wait(0.3) do
 		if _G.AutoFarmAllBoss then
 			pcall(function()
@@ -5855,8 +5912,8 @@ do
 			_G.FarmMastery_Dev = p123
 		end
 	})
-	spawn(function()
-		RunSer.RenderStepped:Connect(function()
+	BugnanaSpawn(function()
+		BugnanaConnect(RunSer.RenderStepped, function()
 			pcall(function()
 				if _G.FarmMastery_Dev or _G.FarmMastery_G or _G.FarmMastery_S then
 					for _, child in pairs(plr.PlayerGui.Notifications:GetChildren()) do
@@ -5868,7 +5925,7 @@ do
 			end)
 		end)
 	end)
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			if _G.FarmMastery_Dev then
 				pcall(function()
@@ -5928,7 +5985,7 @@ do
 			_G.FarmMastery_G = p124
 		end
 	})
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			if _G.FarmMastery_G then
 				pcall(function()
@@ -6100,7 +6157,7 @@ do
 			_G.FarmMastery_S = p125
 		end
 	})
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			pcall(function()
 				if not _G.FarmMastery_S then
@@ -6244,7 +6301,7 @@ do
 		Idle:SetText(p126)
 	end
 
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(1) do
 			pcall(function()
 				local now = os.time()
@@ -6591,7 +6648,7 @@ do
 			end
 		end
 	})
-	task.spawn(function()
+	BugnanaSpawn(function()
 		local magnetEventSpawnRoute = {}
 		local magnetEventSpawnIndex = 1
 		local v724 = true
@@ -6768,7 +6825,7 @@ BusuAura = GRP_Settings_Settings_Configure:AddToggle("Auto_Turn_on_Buso", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			pcall(function()
 				if Boud then
@@ -6796,7 +6853,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait() do
 		if getgenv().Observation then
 			pcall(function()
@@ -6814,7 +6871,7 @@ RaceV3Aura = GRP_Settings_Settings_Configure:AddToggle("AutoTurnonRaceV3", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(0.2) do
 			pcall(function()
 				if _G.RaceClickAutov3 then
@@ -6838,7 +6895,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(0.2) do
 		pcall(function()
 			if _G.RaceClickAutov4 then
@@ -6865,7 +6922,7 @@ SafeModes = GRP_Settings_Settings_Configure:AddToggle("Safe_Mode", {
 		_G.Safemode = p143
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while task.wait(Sec) do
 		pcall(function()
 			if _G.Safemode then
@@ -6898,7 +6955,7 @@ do
 		"SlashTail"
 	}
 
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(Sec) do
 			if _G.DestroyHit then
 				pcall(function()
@@ -6922,7 +6979,7 @@ RmvVFX = GRP_Settings_Settings_Configure:AddToggle("Remove_Death_&_Respawned_VFX
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			pcall(function()
 				if RDeath then
@@ -6946,7 +7003,7 @@ DisblesNotify = GRP_Settings_Settings_Configure:AddToggle("Disable_Notify", {
 		RemoveDamage = p146
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	if wait(Sec) then
 		repeat
 			pcall(function()
@@ -6972,7 +7029,7 @@ GRP_Settings_Settings_Configure:AddToggle("Anti_AFK", {
 				wait()
 			until game:IsLoaded()
 
-			game:GetService("Players").LocalPlayer.Idled:Connect(function()
+			BugnanaConnect(game:GetService("Players").LocalPlayer.Idled, function()
 				VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
 				wait(1)
 				VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
@@ -6991,7 +7048,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait() do
 		pcall(function()
 			if getgenv().HopServerAdmin then
@@ -7035,9 +7092,9 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		pcall(function()
-			game:GetService("RunService").Stepped:Connect(function()
+			BugnanaConnect(game:GetService("RunService").Stepped, function()
 				if getgenv().NoClip then
 					for _, descendant in pairs(game.Players.LocalPlayer.Character:GetDescendants()) do
 						if descendant:IsA("BasePart") or descendant:IsA("Part") then
@@ -7068,7 +7125,7 @@ StatsUpg = GRP_Esp_Stats_Upgrade:AddToggle("Auto_Melee", {
 		_G.Auto_Melee = p151
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		pcall(function()
 			if _G.Auto_Melee then
@@ -7084,7 +7141,7 @@ StatsUpg = GRP_Esp_Stats_Upgrade:AddToggle("Auto_Swords", {
 		_G.Auto_Sword = p152
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		pcall(function()
 			if _G.Auto_Sword then
@@ -7105,7 +7162,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			pcall(function()
 				if _G.Auto_Gun then
@@ -7126,7 +7183,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		pcall(function()
 			if _G.Auto_DevilFruit then
@@ -7146,7 +7203,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		pcall(function()
 			if _G.Auto_Defense then
@@ -7205,7 +7262,7 @@ BuyBaitToggle = GRP_Fish_Fishing:AddToggle("Auto_Buy_Bait", {
 		end
 	end
 })
-task.spawn(function()
+BugnanaSpawn(function()
 	while task.wait(2) do
 		if _G.AutoBuyBait and _G.SelectedBait then
 			local exitTo
@@ -7249,7 +7306,7 @@ do
 	local GetWaterHeightAtLocation = require(ReplicatedStorage2.Util.GetWaterHeightAtLocation)
 	local MaxLaunchDistance = Config.Rod.MaxLaunchDistance
 
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(0.5) do
 			if _G.AutoFishing then
 				local exitTo
@@ -7339,7 +7396,7 @@ do
 		return false
 	end
 
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(1) do
 			if _G.AutoFishingQuest then
 				local exitTo
@@ -7382,7 +7439,7 @@ QuestToggle = GRP_Fish_Fishing:AddToggle("Auto_Complete_Quest", {
 })
 
 do
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(5) do
 			if _G.AutoQuestComplete then
 				pcall(function()
@@ -7408,7 +7465,7 @@ SellFishToggle = GRP_Fish_Fishing:AddToggle("Auto_Sell_Fish", {
 })
 
 do
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(5) do
 			if _G.AutoSellFish then
 				pcall(function()
@@ -7430,7 +7487,7 @@ SpamSkillZ = GRP_Fish_Fishing:AddToggle("Auto_Spam_Skill_Z", {
 do
 	local RFJobToolAbilities = game:GetService("ReplicatedStorage").Modules.Net:WaitForChild("RF/JobToolAbilities")
 
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(0.5) do
 			if _G.AutoSkillZ then
 				pcall(function()
@@ -7453,7 +7510,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		pcall(function()
 			if _G.TravelDres then
@@ -7518,7 +7575,7 @@ Zou = GRP_Quests_Auto_Quest_Sea_2:AddToggle("Auto_Quest_Sea_3", {
 		_G.AutoZou = p165
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		pcall(function()
 			if _G.AutoZou and plr.Data.Level.Value >= 1500 then
@@ -7724,7 +7781,7 @@ Q = GRP_Quests_Tushita_Yama:AddToggle("Auto_Tushita_Sword", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			pcall(function()
 				if _G.Auto_Tushita then
@@ -7844,7 +7901,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			pcall(function()
 				if _G.Auto_Yama then
@@ -7885,7 +7942,7 @@ GRP_Quests_Skull_Guitars_Misc = t15.Quests:AddLeftGroupbox("Skull Guitars / Misc
 do
 	local v784 = GRP_Quests_Skull_Guitars_Misc:AddLabel("")
 
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(0.2) do
 			pcall(function()
 				if Quest1 == true then
@@ -7917,7 +7974,7 @@ do
 end
 
 do
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while wait() do
 			if _G.Auto_Soul_Guitar then
 				pcall(function()
@@ -7996,7 +8053,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		repeat
 			task.wait()
 		until _G.Auto_Soul_Guitar
@@ -8168,7 +8225,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		pcall(function()
 			if _G.AutoMatSoul and GetWP("Skull Guitar") == false then
@@ -8266,7 +8323,7 @@ GRP_Quests_Cursed_Dual_Katana = t15.Quests:AddLeftGroupbox("Cursed Dual Katana")
 do
 	local v804 = GRP_Quests_Cursed_Dual_Katana:AddLabel("Quest Numbers :")
 
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(0.2) do
 			if QuestYama_1 == true then
 				v804:SetText("Quest Numbers : yama quest 1")
@@ -8296,7 +8353,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		if wait(Sec) then
 			repeat
 				pcall(function()
@@ -8358,7 +8415,7 @@ Q = GRP_Quests_Cursed_Dual_Katana:AddToggle("Auto_Yama_CDK", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait() do
 			pcall(function()
 				if _G.CDK_YM then
@@ -8553,7 +8610,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait() do
 			pcall(function()
 				if _G.CDK_YM then
@@ -8683,7 +8740,7 @@ Q = GRP_Quests_Cursed_Dual_Katana:AddToggle("Auto_Tushita_CDK", {
 		_G.CDK_TS = p176
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait() do
 		pcall(function()
 			if _G.CDK_TS then
@@ -8948,7 +9005,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		if _G.Tp_LgS then
 			pcall(function()
@@ -8969,7 +9026,7 @@ Q = GRP_Quests_Pole_God_Enal_s:AddToggle("Auto_Pole_V1", {
 		_G.AutoPole = p178
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		if _G.AutoPole then
 			pcall(function()
@@ -9004,7 +9061,7 @@ Q = GRP_Quests_Pole_God_Enal_s:AddToggle("Auto_Pole_V2_[Beta]", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			pcall(function()
 				if _G.AutoPoleV2 then
@@ -9093,7 +9150,7 @@ GRP_Quests_Pole_God_Enal_s:AddToggle("Auto_Saw_Sword", {
 		_G.AutoSaw = p180
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait(0.2) do
 		pcall(function()
 			if _G.AutoSaw then
@@ -9128,7 +9185,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(0.2) do
 		pcall(function()
 			if _G.AutoSaber and plr.Data.Level.Value >= 200 then
@@ -9253,7 +9310,7 @@ Q = GRP_Quests_Pole_God_Enal_s:AddToggle("Auto_Cybrog", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(0.2) do
 			if _G.AutoColShad then
 				pcall(function()
@@ -9290,7 +9347,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(Sec) do
 			pcall(function()
 				if _G.AutoGetUsoap then
@@ -9324,7 +9381,7 @@ Q = GRP_Quests_Pole_God_Enal_s:AddToggle("Auto_Bisento_V2", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			if _G.Greybeard then
 				pcall(function()
@@ -9367,7 +9424,7 @@ Q = GRP_Quests_Pole_God_Enal_s:AddToggle("Auto_Warden_Sword", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(0.1) do
 			if _G.WardenBoss then
 				pcall(function()
@@ -9404,7 +9461,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(0.1) do
 			if _G.MarinesCoat then
 				pcall(function()
@@ -9439,7 +9496,7 @@ Q = GRP_Quests_Pole_God_Enal_s:AddToggle("Auto_Swan_Coat", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(0.1) do
 			if _G.SwanCoat then
 				pcall(function()
@@ -9475,7 +9532,7 @@ Q = GRP_Quests_Rengoku_Sword:AddToggle("Auto_Rengoku_Sword", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		pcall(function()
 			while wait(0.1) do
 				if _G.IceBossRen then
@@ -9511,7 +9568,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(0.1) do
 		pcall(function()
 			if _G.KeysRen then
@@ -9560,7 +9617,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(0.1) do
 		pcall(function()
 			if _G.AutoTridentW2 then
@@ -9591,7 +9648,7 @@ Q = GRP_Quests_Rengoku_Sword:AddToggle("Auto_Long_Sword", {
 		_G.LongsWord = p191
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait(0.1) do
 		pcall(function()
 			if _G.LongsWord then
@@ -9622,7 +9679,7 @@ Q = GRP_Quests_Rengoku_Sword:AddToggle("Auto_Black_Spikey", {
 		_G.BlackSpikey = p192
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait(0.1) do
 		if _G.BlackSpikey then
 			pcall(function()
@@ -9657,7 +9714,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		pcall(function()
 			if _G.DarkBladev3 and World2 then
@@ -9698,7 +9755,7 @@ Q = GRP_Quests_Rengoku_Sword:AddToggle("Auto_Midnight_Blade", {
 		_G.AutoEcBoss = p194
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		pcall(function()
 			if _G.AutoEcBoss then
@@ -9739,7 +9796,7 @@ Q = GRP_Quests_Rengoku_Sword:AddToggle("Auto_Darkbeard", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(0.1) do
 			if _G.Auto_Def_DarkCoat then
 				pcall(function()
@@ -9798,7 +9855,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(0.1) do
 		if _G.Auto_DonAcces then
 			pcall(function()
@@ -9864,7 +9921,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(0.2) do
 			if _G.Auto_SwanGG then
 				pcall(function()
@@ -9903,7 +9960,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			if _G.AutoBigmom then
 				pcall(function()
@@ -9942,7 +9999,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		pcall(function()
 			if _G.Auto_Cavender then
@@ -9980,7 +10037,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			pcall(function()
 				if _G.TwinHook then
@@ -10017,7 +10074,7 @@ Q = GRP_Quests_Cavender_Twin_Hooks_Bigmom:AddToggle("Auto_Serpent_Bow", {
 		_G.AutoSerpentBow = p201
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		if _G.AutoSerpentBow then
 			local v889 = GetConnectionEnemies("Hydra Leader")
@@ -10052,7 +10109,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(0.2) do
 		if _G.AutoKilo then
 			pcall(function()
@@ -10088,7 +10145,7 @@ Q = GRP_Quests_Buso_Aura_Colours:AddToggle("Auto_Teleport_Barista_Cousin", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait() do
 			if _G.Tp_MasterA then
 				pcall(function()
@@ -10119,7 +10176,7 @@ Q = GRP_Quests_Buso_Aura_Colours:AddToggle("Auto_Rainbow_Colors", {
 		_G.Auto_Rainbow_Haki = p204
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	pcall(function()
 		while wait(Sec) do
 			if _G.Auto_Rainbow_Haki then
@@ -10265,7 +10322,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(0.2) do
 		pcall(function()
 			if _G.obsFarm then
@@ -10283,7 +10340,7 @@ spawn(function()
 end)
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(0.2) do
 			pcall(function()
 				if _G.obsFarm then
@@ -10387,7 +10444,7 @@ Q = GRP_Quests_Instinct_Observation:AddToggle("Auto_Observation_V2", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			if _G.AutoKenVTWO then
 				pcall(function()
@@ -10566,7 +10623,7 @@ Bartilo = GRP_Quests_Instinct_Observation:AddToggle("Auto_Done_Bartilo_Quest", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(0.1) do
 			pcall(function()
 				if _G.Bartilo_Quest and Lv >= 850 then
@@ -10671,7 +10728,7 @@ CitizenQ = GRP_Quests_Instinct_Observation:AddToggle("Auto_Done_Citizen_Quest", 
 		_G.CitizenQuest = p209
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		pcall(function()
 			if _G.CitizenQuest then
@@ -10757,7 +10814,7 @@ Q = GRP_Quests_Instinct_Observation:AddToggle("Auto_Training_Dummy", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			if _G.DummyMan then
 				pcall(function()
@@ -10799,7 +10856,7 @@ SuperHuman = GRP_Quests_Fighting_Melee_Styles:AddToggle("Auto_Superhuman", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			pcall(function()
 				if _G.Auto_SuperHuman then
@@ -10868,7 +10925,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			if _G.AutoDeathStep then
 				pcall(function()
@@ -10937,7 +10994,7 @@ SharkManV2 = GRP_Quests_Fighting_Melee_Styles:AddToggle("Auto_Sharkman_Karate", 
 		_G.Auto_SharkMan_Karate = p213
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		if _G.Auto_SharkMan_Karate then
 			pcall(function()
@@ -11006,7 +11063,7 @@ ElectricClaw = GRP_Quests_Fighting_Melee_Styles:AddToggle("Auto_ElectricClaw", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			if _G.Auto_Electric_Claw then
 				pcall(function()
@@ -11053,7 +11110,7 @@ DragonTalon = GRP_Quests_Fighting_Melee_Styles:AddToggle("Auto_DragonTalon", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			if _G.AutoDragonTalon then
 				pcall(function()
@@ -11098,7 +11155,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait() do
 		pcall(function()
 			if _G.Auto_God_Human then
@@ -11153,7 +11210,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			if _G.Snaguine then
 				pcall(function()
@@ -11256,7 +11313,7 @@ do
 	local v933 = GRP_Race_Mystic_Island_Full_Moon:AddLabel("")
 	local v934 = GRP_Race_Mystic_Island_Full_Moon:AddLabel("")
 
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(0.2) do
 			if not workspace.Map:FindFirstChild("MysticIsland") then
 				if not workspace._WorldOrigin.Locations:FindFirstChild("Mirage Island") then
@@ -11269,7 +11326,7 @@ do
 			v934:SetText("Mirage Island : True")
 		end
 	end)
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(0.2) do
 			pcall(function()
 				local v935 = Getmoon()
@@ -11303,7 +11360,7 @@ GRP_Race_Mystic_Island_Full_Moon:AddToggle("Auto_Find_Mirage_Island", {
 		_G.FindMirage = p218
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait() do
 		if _G.FindMirage then
 			pcall(function()
@@ -11359,7 +11416,7 @@ GRP_Race_Mystic_Island_Full_Moon:AddToggle("Esp_Mirage_Island", {
 		MirageIslandESP = p219
 
 		if MirageIslandESP then
-			task.spawn(function()
+			BugnanaSpawn(function()
 				while MirageIslandESP do
 					UpdateIslandMirageESP()
 					task.wait(1)
@@ -11381,7 +11438,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while task.wait(0.1) do
 		pcall(function()
 			if _G.AutoMysticIsland then
@@ -11401,7 +11458,7 @@ GRP_Race_Mystic_Island_Full_Moon:AddToggle("Auto_Tween_To_Highest_Point", {
 		_G.HighestMirage = p221
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		if _G.HighestMirage then
 			pcall(function()
@@ -11419,7 +11476,7 @@ GRP_Race_Mystic_Island_Full_Moon:AddToggle("Auto_Collect_Gear", {
 		_G.TPGEAR = p222
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	pcall(function()
 		while wait(0.1) do
 			if _G.TPGEAR then
@@ -11446,7 +11503,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	pcall(function()
 		while wait(Sec) do
 			if _G.can then
@@ -11478,7 +11535,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait() do
 			if _G.Addealer then
 				pcall(function()
@@ -11501,7 +11558,7 @@ GRP_Race_Mystic_Island_Full_Moon:AddToggle("Auto_Collect_Mirage_Chest", {
 	end
 })
 
-task.spawn(function()
+BugnanaSpawn(function()
 	local CollectionService = game:GetService("CollectionService")
 	while task.wait(0.5) do
 		if _G.FarmChestM then
@@ -11574,7 +11631,7 @@ MoveCamtoMoon = function()
 end
 
 do
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait() do
 			if LookM then
 				MoveCamtoMoon()
@@ -11601,7 +11658,7 @@ MoveCamtoMoon = function()
 	workspace.CurrentCamera.CFrame = CFrame.new(workspace.CurrentCamera.CFrame.Position, workspace.CurrentCamera.CFrame.Position + moonDirection)
 	plr.Character.HumanoidRootPart.CFrame = CFrame.new(plr.Character.HumanoidRootPart.Position, plr.Character.HumanoidRootPart.Position + moonDirection)
 end
-task.spawn(function()
+BugnanaSpawn(function()
 	while task.wait(0.1) do
 		if LookMV3 then
 			MoveCamtoMoon()
@@ -11625,7 +11682,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			pcall(function()
 				if _G.Auto_Mink then
@@ -11694,7 +11751,7 @@ RaceHuman = GRP_Race_Upgrade_Races_V2_And_V3:AddToggle("Auto_Upgrade_Human", {
 		_G.Auto_Human = p229
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		pcall(function()
 			if _G.Auto_Human then
@@ -11825,7 +11882,7 @@ RaceSky = GRP_Race_Upgrade_Races_V2_And_V3:AddToggle("Auto_Upgrade_Angel", {
 		_G.Auto_Skypiea = p230
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		pcall(function()
 			if _G.Auto_Skypiea then
@@ -11907,7 +11964,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		pcall(function()
 			if _G.Auto_Fish then
@@ -11970,7 +12027,7 @@ GRP_Race_Trials_Quest_V4 = t15.Race:AddLeftGroupbox("Trials Quest V4")
 do
 	local v986 = GRP_Race_Trials_Quest_V4:AddLabel("")
 
-	spawn(function()
+	BugnanaSpawn(function()
 		pcall(function()
 			while wait(0.2) do
 				v986:SetText("Tiers - V4 : " .. " " .. plr.Data.Race.C.Value)
@@ -11989,7 +12046,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		if _G.Lver then
 			pcall(function()
@@ -12014,7 +12071,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			pcall(function()
 				if _G.AcientOne then
@@ -12420,7 +12477,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			pcall(function()
 				if _G.TPDoor then
@@ -12470,7 +12527,7 @@ GetSeaBeastTrial = function()
 		end
 	end
 end
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		pcall(function()
 			if _G.Complete_Trials and tostring(plr.Data.Race.Value) == "Mink" then
@@ -12481,13 +12538,13 @@ spawn(function()
 end)
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			pcall(function()
 				if _G.Complete_Trials and tostring(plr.Data.Race.Value) == "Fishman" and GetSeaBeastTrial() then
 					while true do
 						task.wait()
-						spawn(function()
+						BugnanaSpawn(function()
 							_tp(CFrame.new(GetSeaBeastTrial().HumanoidRootPart.Position.X, game:GetService("Workspace").Map["WaterBase-Plane"].Position.Y + 300, GetSeaBeastTrial().HumanoidRootPart.Position.Z))
 						end)
 						MousePos = GetSeaBeastTrial().HumanoidRootPart.Position
@@ -12517,7 +12574,7 @@ do
 	end)
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		pcall(function()
 			if _G.Complete_Trials and tostring(plr.Data.Race.Value) == "Cyborg" then
@@ -12528,7 +12585,7 @@ spawn(function()
 end)
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			pcall(function()
 				if _G.Complete_Trials and tostring(plr.Data.Race.Value) == "Skypiea" then
@@ -12539,7 +12596,7 @@ do
 	end)
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(0.1) do
 		pcall(function()
 			if _G.Complete_Trials and (tostring(plr.Data.Race.Value) == "Human" or tostring(plr.Data.Race.Value) == "Ghoul") then
@@ -12576,7 +12633,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(Sec) do
 			pcall(function()
 				if _G.Defeating then
@@ -12631,7 +12688,7 @@ do
 	end
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		if _G.Dojoo then
 			pcall(function()
@@ -12881,7 +12938,7 @@ DragonMobClear = function(p239, p240, p241)
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait() do
 			if _G.FarmBlazeEM then
 				pcall(function()
@@ -12909,7 +12966,7 @@ do
 						if workspace.Map.Waterfall.IslandModel:FindFirstChild("Meshes/bambootree", true) then
 							repeat
 								wait()
-								spawn(function()
+								BugnanaSpawn(function()
 									_tp(workspace.Map.Waterfall.IslandModel:FindFirstChild("Meshes/bambootree", true).CFrame * CFrame.new(4, 0, 0))
 								end)
 
@@ -12938,7 +12995,7 @@ do
 	end)
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(0.1) do
 		if _G.FarmBlazeEM then
 			pcall(function()
@@ -12969,7 +13026,7 @@ Toggle = GRP_Prehistoric_Drago_Trial:AddToggle("Tween_To_Upgrade_Droco_Trial", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			pcall(function()
 				if _G.UPGDrago then
@@ -13005,7 +13062,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			pcall(function()
 				if _G.DragoV1 and GetM("Dragon Egg") <= 0 then
@@ -13044,7 +13101,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			if _G.AutoFireFlowers then
 				local FireFlowers = workspace:FindFirstChild("FireFlowers")
@@ -13096,7 +13153,7 @@ Toggle = GRP_Prehistoric_Drago_Trial:AddToggle("Auto_Drago_(V3)", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			pcall(function()
 				if _G.DragoV3 then
@@ -13127,7 +13184,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			if _G.Relic123 then
 				pcall(function()
@@ -13240,7 +13297,7 @@ Toggle = GRP_Prehistoric_Drago_Trial:AddToggle("Auto_Train_Drago_v4", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			pcall(function()
 				if _G.TrainDrago then
@@ -26012,7 +26069,7 @@ dragoTpVolcano = GRP_Prehistoric_Drago_Trial:AddToggle("Tween_to_Drago_Trials", 
 		_G.TpDrago_Prehis = p248
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		if _G.TpDrago_Prehis then
 			local TrialTeleport = workspace.Map.PrehistoricIsland:FindFirstChild("TrialTeleport")
@@ -26054,7 +26111,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			if _G.BuyDrago then
 				pcall(function()
@@ -26084,7 +26141,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			if _G.DT_Uzoth then
 				local cFrame = CFrame.new(5661.89014, 1211.31909, 864.836731, 0.811413169, -1.36805838e-08, -0.584473014, 4.75227395e-08, 1, 4.25682458e-08, 0.584473014, -6.23161966e-08, 0.811413169)
@@ -26140,7 +26197,7 @@ GRP_Prehistoric_Prehistoric_Island = t15.Prehistoric:AddLeftGroupbox("Prehistori
 do
 	local v1079 = GRP_Prehistoric_Prehistoric_Island:AddLabel("")
 
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(0.2) do
 			if not workspace.Map:FindFirstChild("PrehistoricIsland") then
 				if not workspace._WorldOrigin.Locations:FindFirstChild("Prehistoric Island") then
@@ -26175,7 +26232,7 @@ do
 end
 
 do
-	task.spawn(function()
+	BugnanaSpawn(function()
 		local rfCraft = game:GetService("ReplicatedStorage").Modules.Net["RF/Craft"]
 
 		while task.wait(0.3) do
@@ -26200,7 +26257,7 @@ GRP_Prehistoric_Prehistoric_Island:AddToggle("Auto_Find_Prehistoric_Island", {
 do
 	local u1081
 
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			pcall(function()
 				if _G.Prehis_Find then
@@ -26282,7 +26339,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait() do
 			if _G.AutoStartPrehistoric then
 				pcall(function()
@@ -26318,7 +26375,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(0.3) do
 		if _G.Prehis_Skills then
 			pcall(function()
@@ -26357,7 +26414,7 @@ spawn(function()
 		end
 	end
 end)
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		if _G.Prehis_Skills then
 			pcall(function()
@@ -26384,7 +26441,7 @@ spawn(function()
 end)
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			if _G.Prehis_Skills then
 				pcall(function()
@@ -26446,7 +26503,7 @@ Kaura = GRP_Prehistoric_Prehistoric_Island:AddToggle("Kill_Aura", {
 		_G.KillAuraFull = p255
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while task.wait(2) do
 		if _G.KillAuraFull then
 			local exitTo
@@ -26493,7 +26550,7 @@ Vocan = GRP_Prehistoric_Prehistoric_Island:AddToggle("Auto_Collect_Dino_Bones", 
 		_G.Prehis_DB = p256
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		pcall(function()
 			if _G.Prehis_DB then
@@ -26519,7 +26576,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		pcall(function()
 			if _G.Prehis_DE then
@@ -26542,7 +26599,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	if wait(Sec) then
 		repeat
 			pcall(function()
@@ -26565,8 +26622,8 @@ spawn(function()
 end)
 GRP_SeaEvent_Sea_Event_Setting_Sail = t15.SeaEvent:AddLeftGroupbox("Sea Event / Setting Sail")
 getgenv().SetSpeedBoat = 300
-spawn(function()
-	game:GetService("RunService").RenderStepped:Connect(function()
+BugnanaSpawn(function()
+	BugnanaConnect(game:GetService("RunService").RenderStepped, function()
 		if getgenv().SpeedBoat then
 			local LocalPlayer = game:GetService("Players").LocalPlayer
 
@@ -26625,7 +26682,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait() do
 			pcall(function()
 				if getgenv().AutoPressW then
@@ -26651,7 +26708,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait() do
 			pcall(function()
 				for _, child in pairs(game:GetService("Workspace").Boats:GetChildren()) do
@@ -26788,7 +26845,7 @@ Q = GRP_SeaEvent_Choose_Sea_Event:AddToggle("Auto_Sail_Boat", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait() do
 			if _G.SailBoats then
 				pcall(function()
@@ -26853,7 +26910,7 @@ do
 	end)
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		pcall(function()
 			for _, child in pairs(workspace.Boats:GetChildren()) do
@@ -26938,7 +26995,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait() do
 		pcall(function()
 			if _G.Shark then
@@ -27052,7 +27109,7 @@ spawn(function()
 						if child:FindFirstChild("HumanoidRootPart") and child:FindFirstChild("Health") and child.Health.Value > 0 then
 							repeat
 								task.wait()
-								spawn(function()
+								BugnanaSpawn(function()
 									_tp(CFrame.new(child.HumanoidRootPart.Position.X, game:GetService("Workspace").Map["WaterBase-Plane"].Position.Y + 200, child.HumanoidRootPart.Position.Z))
 								end)
 
@@ -27093,7 +27150,7 @@ spawn(function()
 						if child:FindFirstChild("HumanoidRootPart") and child:FindFirstChild("Leviathan Segment") and child:FindFirstChild("Health") and child.Health.Value > 0 then
 							repeat
 								task.wait()
-								spawn(function()
+								BugnanaSpawn(function()
 									_tp(CFrame.new(child.HumanoidRootPart.Position.X, game:GetService("Workspace").Map["WaterBase-Plane"].Position.Y + 200, child.HumanoidRootPart.Position.Z))
 								end)
 
@@ -27132,7 +27189,7 @@ spawn(function()
 					if child:FindFirstChild("Health") and child.Health.Value > 0 and child:FindFirstChild("VehicleSeat") then
 						repeat
 							task.wait()
-							spawn(function()
+							BugnanaSpawn(function()
 								if child.Name == "FishBoat" then
 									_tp(child.Engine.CFrame * CFrame.new(0, -50, -25))
 								end
@@ -27173,7 +27230,7 @@ spawn(function()
 					if child:FindFirstChild("Health") and child.Health.Value > 0 and child:FindFirstChild("VehicleSeat") then
 						repeat
 							task.wait()
-							spawn(function()
+							BugnanaSpawn(function()
 								if child.Name == "PirateBrigade" then
 									_tp(child.Engine.CFrame * CFrame.new(0, -30, -10))
 								elseif child.Name == "PirateGrandBrigade" then
@@ -27218,7 +27275,7 @@ GRP_SeaEvent_Kitsune_Island_Event = t15.SeaEvent:AddLeftGroupbox("Kitsune Island
 do
 	local v1159 = GRP_SeaEvent_Kitsune_Island_Event:AddLabel("")
 
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(0.2) do
 			if not workspace.Map:FindFirstChild("KitsuneIsland") then
 				if not workspace._WorldOrigin.Locations:FindFirstChild("Kitsune Island") then
@@ -27240,7 +27297,7 @@ GRP_SeaEvent_Kitsune_Island_Event:AddToggle("Auto_Find_Kitsune_Island", {
 		_G.AutofindKitIs = p274
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait() do
 		if _G.AutofindKitIs then
 			pcall(function()
@@ -27301,7 +27358,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(0.1) do
 			if _G.tweenShrine then
 				pcall(function()
@@ -27349,7 +27406,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(0.1) do
 		if _G.Collect_Ember then
 			pcall(function()
@@ -27381,7 +27438,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(0.1) do
 			if _G.Trade_Ember then
 				pcall(function()
@@ -27427,7 +27484,7 @@ GRP_SeaEvent_Frozen_Dimension_Event = t15.SeaEvent:AddLeftGroupbox("Frozen Dimen
 do
 	local v1172 = GRP_SeaEvent_Frozen_Dimension_Event:AddLabel("")
 
-	spawn(function()
+	BugnanaSpawn(function()
 		pcall(function()
 			while wait(0.2) do
 				if workspace._WorldOrigin.Locations:FindFirstChild("Frozen Dimension") then
@@ -27443,7 +27500,7 @@ end
 do
 	local v1173 = GRP_SeaEvent_Frozen_Dimension_Event:AddLabel("")
 
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(0.2) do
 			pcall(function()
 				local v1174 = string.match(replicated.Remotes.CommF_:InvokeServer("InfoLeviathan", "1"), "%d+")
@@ -27473,7 +27530,7 @@ GRP_SeaEvent_Frozen_Dimension_Event:AddToggle("Auto_Teleport_Frozen_Dimension", 
 		_G.FrozenTP = p278
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait(0.1) do
 		if _G.FrozenTP then
 			pcall(function()
@@ -27496,7 +27553,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait() do
 		if _G.SailBoat_Hydra then
 			pcall(function()
@@ -28076,7 +28133,7 @@ do
 			BerryEsp = p283
 
 			if p283 then
-				task.spawn(function()
+				BugnanaSpawn(function()
 					while BerryEsp do
 						berriesEsp()
 						task.wait()
@@ -28102,7 +28159,7 @@ GRP_Esp_Esp:AddToggle("Esp_Player", {
 		PlayerEsp = p284
 
 		if p284 then
-			task.spawn(function()
+			BugnanaSpawn(function()
 				while PlayerEsp do
 					EspPly()
 					task.wait()
@@ -28131,7 +28188,7 @@ GRP_Esp_Esp:AddToggle("Esp_Chest", {
 		ChestESP = p285
 
 		if p285 then
-			task.spawn(function()
+			BugnanaSpawn(function()
 				while ChestESP do
 					ChestEsp()
 					task.wait()
@@ -28155,7 +28212,7 @@ GRP_Esp_Esp:AddToggle("Esp_Fruit", {
 		DevilFruitESP = p286
 
 		if p286 then
-			task.spawn(function()
+			BugnanaSpawn(function()
 				while DevilFruitESP do
 					DevEsp()
 					task.wait()
@@ -28184,7 +28241,7 @@ GRP_Esp_Esp:AddToggle("Esp_Island", {
 		IslandESP = p287
 
 		if p287 then
-			task.spawn(function()
+			BugnanaSpawn(function()
 				while IslandESP do
 					LocationEsp()
 					task.wait()
@@ -28213,7 +28270,7 @@ do
 			FlowerESP = p288
 
 			if p288 then
-				task.spawn(function()
+				BugnanaSpawn(function()
 					while FlowerESP do
 						flowerEsp()
 						task.wait()
@@ -28240,7 +28297,7 @@ do
 			LegenS = p289
 
 			if p289 then
-				task.spawn(function()
+				BugnanaSpawn(function()
 					while LegenS do
 						LegenSword()
 						task.wait()
@@ -28261,7 +28318,7 @@ do
 			ColorEsp = p290
 
 			if p290 then
-				task.spawn(function()
+				BugnanaSpawn(function()
 					while ColorEsp do
 						HakiClorEsp()
 						task.wait()
@@ -28281,7 +28338,7 @@ GRP_Esp_Esp:AddToggle("Esp_Gear", {
 		ESPGear = p291
 
 		if p291 then
-			task.spawn(function()
+			BugnanaSpawn(function()
 				while ESPGear do
 					gearEsp()
 					task.wait()
@@ -28310,7 +28367,7 @@ do
 			EspEventIsland = p292
 
 			if p292 then
-				task.spawn(function()
+				BugnanaSpawn(function()
 					while EspEventIsland do
 						EventIslandEsp()
 						task.wait()
@@ -28337,7 +28394,7 @@ do
 			advanEsp = p293
 
 			if p293 then
-				task.spawn(function()
+				BugnanaSpawn(function()
 					while advanEsp do
 						AdvanFruitEsp()
 						task.wait()
@@ -28413,7 +28470,7 @@ do
 
 	local v1296 = GRP_Raids_Fruits_Options:AddLabel("Loading...")
 
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(60) do
 			pcall(function()
 				v1296:SetText(v1283())
@@ -28435,7 +28492,7 @@ do
 	})
 end
 
-task.spawn(function()
+BugnanaSpawn(function()
 	local lastRandomFruitAttempt = 0
 	while task.wait(2) do
 		if _G.Random_Auto and os.clock() - lastRandomFruitAttempt >= 30 then
@@ -28458,7 +28515,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			if _G.DropFruit then
 				pcall(function()
@@ -28478,7 +28535,7 @@ StoredF = GRP_Raids_Fruits_Options:AddToggle("Auto_Store_Fruit", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			if _G.StoreF then
 				pcall(function()
@@ -28498,7 +28555,7 @@ TwF = GRP_Raids_Fruits_Options:AddToggle("Auto_Tween_to_Fruit", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			if _G.TwFruits then
 				pcall(function()
@@ -28523,7 +28580,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		if _G.InstanceF then
 			pcall(function()
@@ -28595,7 +28652,7 @@ GRP_Raids_Fruits_Options:AddToggle("Auto_Buy_Fruit_Shop", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		pcall(function()
 			while wait() do
 				if getgenv().AutoBuyFruitSniper then
@@ -28651,7 +28708,7 @@ GRP_Raids_Dungeon_Event_Raiding:AddToggle("Get_Fruit_In_Inventory_Below_1M", {
 	end
 })
 
-task.spawn(function()
+BugnanaSpawn(function()
 	while task.wait(5) do
 		if getgenv().AutoGetFruit and not GetBP("Special Microchip") and not HasLoadedRaidFruit() then
 			pcall(function()
@@ -28814,7 +28871,7 @@ AutoChipBeli = GRP_Raids_Dungeon_Event_Raiding:AddToggle("Auto_Buy_Chip_[Beli]",
 	end
 })
 
-task.spawn(function()
+BugnanaSpawn(function()
 	local lastAttempt = 0
 	while task.wait(1) do
 		if _G.AutoChipBeli and not HasRaidChip() and os.clock() - lastAttempt >= 15 then
@@ -28832,7 +28889,7 @@ AutoChipFruit = GRP_Raids_Dungeon_Event_Raiding:AddToggle("Auto_Buy_Chip_[Devil_
 	end
 })
 
-task.spawn(function()
+BugnanaSpawn(function()
 	local lastAttempt = 0
 	while task.wait(1) do
 		if _G.AutoChipFruit and not HasRaidChip() and os.clock() - lastAttempt >= 5 then
@@ -28842,7 +28899,7 @@ task.spawn(function()
 	end
 end)
 
-task.spawn(function()
+BugnanaSpawn(function()
 	local chipByFruit = {
 		Spider = "String",
 		Buddha = "Human: Buddha",
@@ -28874,7 +28931,7 @@ do
 end
 
 do
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(Sec) do
 			if _G.Auto_StartRaid then
 				pcall(function()
@@ -28919,7 +28976,7 @@ Raiding = GRP_Raids_Dungeon_Event_Raiding:AddToggle("Auto_Raid_+_Next_Island", {
 		_G.Raiding = p307
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	local Locations = workspace._WorldOrigin.Locations
 	local t46 = {
 		"Island 1",
@@ -29010,7 +29067,7 @@ GRP_Raids_Dungeon_Event_Raiding:AddToggle("Auto_Awakening", {
 		_G.Auto_Awakener = p308
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		pcall(function()
 			if _G.Auto_Awakener then
@@ -29072,7 +29129,7 @@ GRP_Raids_Items_Law_Order_Sword:AddToggle("Auto_Buy_Microchip_Law", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		local lastAttempt = 0
 		while task.wait(1) do
 			if getgenv().AutoBuyMicrochipLaw and not GetBP("Microchip")
@@ -29095,7 +29152,7 @@ GRP_Raids_Items_Law_Order_Sword:AddToggle("Auto_Start_Law_Raids", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(1) do
 			if getgenv().AutoStartLawRaids and GetBP("Microchip") then
 				pcall(function()
@@ -29115,7 +29172,7 @@ GRP_Raids_Items_Law_Order_Sword:AddToggle("Auto_Kill_Law", {
 })
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			if _G.AutoLawKak then
 				pcall(function()
@@ -29195,7 +29252,7 @@ do
 		end)
 		return targets
 	end
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(0.5) do
 			pcall(function()
 				local targets = GetRaidTargets()
@@ -29207,7 +29264,7 @@ do
 			end)
 		end
 	end)
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(0.2) do
 			if _G.AutoFarmDungeon then
 				pcall(function()
@@ -29251,7 +29308,7 @@ do
 		end
 	end
 
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(0.3) do
 			if _G.TPFloor1 then
 				if not u1336 then
@@ -29279,7 +29336,7 @@ do
 
 	local u1344 = false
 
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(0.3) do
 			if _G.TPFloor2 then
 				if not u1344 then
@@ -29328,7 +29385,7 @@ do
 		return v1352
 	end
 
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(0.3) do
 			if _G.TPFloor3 then
 				if not u1350 then
@@ -29382,7 +29439,7 @@ do
 		return Root_
 	end
 
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait(0.3) do
 			if _G.TPFloor4 then
 				if not u1357 then
@@ -29405,7 +29462,7 @@ GRP_Combat_Combat_AimBot = t15.Combat:AddLeftGroupbox("Combat / AimBot")
 do
 	local v1367 = GRP_Combat_Combat_AimBot:AddLabel("")
 
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(Sec) do
 			pcall(function()
 				local v1368 = #game:GetService("Players"):GetPlayers()
@@ -29434,7 +29491,7 @@ do
 
 		return ""
 	end
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait(0.2) do
 			pcall(function()
 				if _G.AimMethod then
@@ -29474,7 +29531,7 @@ GRP_Combat_Combat_AimBot:AddToggle("Teleport_To_Select_Players", {
 	Default = false,
 	Callback = function(p319)
 		_G.TpPly = p319
-		spawn(function()
+		BugnanaSpawn(function()
 			pcall(function()
 				while _G.TpPly do
 					wait()
@@ -29489,7 +29546,7 @@ GRP_Combat_Combat_AimBot:AddToggle("Spectate_Select_Players", {
 	Default = false,
 	Callback = function(p320)
 		SpectatePlys = p320
-		spawn(function()
+		BugnanaSpawn(function()
 			repeat
 				task.wait(0.1)
 
@@ -29526,7 +29583,7 @@ GRP_Combat_Combat_AimBot:AddToggle("Aimbot_Method_Skills", {
 		_G.AimMethod = p322
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait() do
 		pcall(function()
 			if _G.AimMethod and ABmethod == "Aim Player" then
@@ -29543,7 +29600,7 @@ spawn(function()
 end)
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while wait() do
 			pcall(function()
 				if _G.AimMethod and ABmethod == "Nearest Aim" then
@@ -29577,7 +29634,7 @@ do
 	})
 end
 
-task.spawn(function()
+BugnanaSpawn(function()
 	while task.wait(Sec) do
 		pcall(function()
 			if _G.AimCam then
@@ -29638,7 +29695,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while task.wait(1) do
 		if _G.AutoReceivePlayerQuest then
 			local exitTo
@@ -29673,7 +29730,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while task.wait() do
 		if _G.AutoPlayerHunter then
 			if game.Players.LocalPlayer.PlayerGui.Main.Quest.Visible == false then
@@ -29719,7 +29776,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while task.wait(0.5) do
 		if _G.AutoPvP then
 			local PlayerGui = game.Players.LocalPlayer.PlayerGui
@@ -29745,7 +29802,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while task.wait(0.1) do
 		if _G.SafeMode then
 			local Character = game.Players.LocalPlayer.Character
@@ -29850,7 +29907,7 @@ do
 
 		local connection2
 
-		connection2 = RunService.Heartbeat:Connect(function()
+		connection2 = BugnanaConnect(RunService.Heartbeat, function()
 			if u1398 then
 				v1405()
 			elseif connection2 then
@@ -29886,7 +29943,7 @@ do
 				end
 			end
 
-			LocalPlayer3.Character.DescendantAdded:Connect(function(descendant)
+			BugnanaConnect(LocalPlayer3.Character.DescendantAdded, function(descendant)
 				if u1398 and descendant:IsA("BasePart") then
 					descendant.CanCollide = false
 					descendant.Massless = true
@@ -29901,7 +29958,7 @@ do
 			BodyVelocity.maxForce = Vector3.new(9e9, 9e9, 9e9)
 			Humanoid.PlatformStand = true
 			v1404()
-			connection = RunService.Heartbeat:Connect(function()
+			connection = BugnanaConnect(RunService.Heartbeat, function()
 				if not u1398 or not LocalPlayer3.Character then
 					return
 				end
@@ -30018,7 +30075,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(0.2) do
 		pcall(function()
 			if InfAblities then
@@ -30093,7 +30150,7 @@ do
 	})
 end
 
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		if _G.AcceptAlly then
 			pcall(function()
@@ -30135,7 +30192,7 @@ GoIsland = GRP_Travel_Travel_Island:AddToggle("Auto_Travel", {
 	Callback = function(enabled)
 		_G.Teleport = enabled
 		if enabled then
-			task.spawn(function()
+			BugnanaSpawn(function()
 				while _G.Teleport do
 					local folder = workspace:FindFirstChild("_WorldOrigin") and workspace._WorldOrigin:FindFirstChild("Locations")
 					local destination = folder and folder:FindFirstChild(_G.Island)
@@ -30185,7 +30242,7 @@ GRP_Travel_Travel_Portal:AddButton({
 	Func = function()
 		local destination = PortalTravelDestinations[_G.Island_PT]
 		if not destination then return end
-		task.spawn(function()
+		BugnanaSpawn(function()
 			local previousTeleport = _G.Teleport
 			_G.Teleport = true
 			local usedPortal = false
@@ -30218,7 +30275,7 @@ GoNPCs = GRP_Travel_Travel_NPCs:AddToggle("Auto_Tween_to_NPC", {
 		_G.AutoTravelNPC = enabled
 	end
 })
-task.spawn(function()
+BugnanaSpawn(function()
 	while task.wait(1) do
 		if _G.AutoTravelNPC and _G.SelectedTravelNPC then
 			pcall(function()
@@ -30559,7 +30616,7 @@ GRP_Shop_Fragments_shop:AddButton({
 GRP_Shop_Fragments_shop:AddButton({
 	Text = "Buy Draco Race",
 	Func = function()
-		task.spawn(function()
+		BugnanaSpawn(function()
 			local previousTeleport = _G.Teleport
 			_G.Teleport = true
 			local targetPosition = Vector3.new(5814.42724609375, 1208.3267822265625, 884.57855224609375)
@@ -30676,7 +30733,7 @@ GRP_Misc_Server_Function:AddButton({
 GRP_Misc_Server_Function:AddButton({
 	Text = "Hop Server",
 	Func = function()
-		task.spawn(function()
+		BugnanaSpawn(function()
 			local HttpService = game:GetService("HttpService")
 			local TeleportService_ = game:GetService("TeleportService")
 			local Players2 = game:GetService("Players")
@@ -30869,7 +30926,7 @@ UnPortal = GRP_Misc_Player_Gui_Others:AddToggle("Unlock_All_Portals", {
 		_G.PortalUnLock = p350
 	end
 })
-spawn(function()
+BugnanaSpawn(function()
 	while wait(Sec) do
 		pcall(function()
 			if _G.PortalUnLock then
@@ -30958,7 +31015,7 @@ do
 				ColorCorrectionEffect.TintColor = Color3.fromRGB(217, 145, 57)
 				ColorCorrectionEffect2.TintColor = Color3.fromRGB(217, 145, 57)
 				game.Lighting.FogEnd = 999
-				spawn(function()
+				BugnanaSpawn(function()
 					while _G.RTXMode do
 						wait()
 						game.Lighting.Ambient = Color3.fromRGB(33, 33, 33)
@@ -31120,7 +31177,7 @@ dayornight = GRP_Misc_Configure_God:AddToggle("Turn_on_Time", {
 })
 
 do
-	task.spawn(function()
+	BugnanaSpawn(function()
 		while task.wait() do
 			if _G.daylightN then
 				if _G.SelectDN == "Day" then
@@ -31158,7 +31215,7 @@ do
 end
 
 do
-	spawn(function()
+	BugnanaSpawn(function()
 		while task.wait() do
 			if _G.WalkWater then
 				pcall(function()
@@ -31176,7 +31233,7 @@ do
 							}
 							local tween = TW:Create(clone, TweenInfo.new(2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), t50)
 
-							tween.Completed:Connect(function()
+							BugnanaConnect(tween.Completed, function()
 								clone:Destroy()
 							end)
 							tween:Play()
@@ -31387,8 +31444,8 @@ do
 end
 
 do
-	task.spawn(function()
-		RunSer.Heartbeat:Connect(function()
+	BugnanaSpawn(function()
+		BugnanaConnect(RunSer.Heartbeat, function()
 			pcall(function()
 				if not _G.Seriality then
 					return
@@ -31550,7 +31607,7 @@ local function v1601()
 			end
 		end
 
-		v1.ChildAdded:Connect(function(child)
+		BugnanaConnect(v1.ChildAdded, function(child)
 			if child:IsA("RemoteEvent") and child:GetAttribute("Id") then
 				u1599 = child
 				attribute = child:GetAttribute("Id")
@@ -31688,14 +31745,14 @@ end
 
 do
 	local function v1627()
-		task.spawn(function()
+		BugnanaSpawn(function()
 			while task.wait(t54.Rate) do
 				if IsBugnanaCombatFarmActive() then
 					t54.ExecuteFastAttack()
 				end
 			end
 		end)
-		RunService.Heartbeat:Connect(function()
+		BugnanaConnect(RunService.Heartbeat, function()
 			if IsBugnanaCombatFarmActive() then
 				pcall(t55.Execute)
 			end

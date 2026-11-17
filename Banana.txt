@@ -240,6 +240,19 @@ end
 
 local t9 = {}
 
+-- Limita o trabalho repetido de combate por NPC para evitar criar tweens
+-- e executar varreduras/equipamentos dezenas de vezes por segundo.
+local CombatActionTimes = setmetatable({}, {__mode = "k"})
+local function CombatActionReady(target)
+	local now = os.clock()
+	local last = CombatActionTimes[target]
+	if last and now - last < 0.2 then
+		return false
+	end
+	CombatActionTimes[target] = now
+	return true
+end
+
 t9.__index = t9
 
 do
@@ -267,6 +280,7 @@ end
 do
 	t9.Kill = function(p10, p11)
 		if p10 and p11 then
+			if not CombatActionReady(p10) then return end
 			if not p10:GetAttribute("Locked") then
 				p10:SetAttribute("Locked", p10.HumanoidRootPart.CFrame)
 			end
@@ -301,6 +315,7 @@ end
 
 t9.Kill2 = function(p12, p13)
 	if p12 and p13 then
+		if not CombatActionReady(p12) then return end
 		if not p12:GetAttribute("Locked") then
 			p12:SetAttribute("Locked", p12.HumanoidRootPart.CFrame)
 		end
@@ -336,6 +351,7 @@ end
 do
 	t9.KillSea = function(p14, p15)
 		if p14 and p15 then
+			if not CombatActionReady(p14) then return end
 			if not p14:GetAttribute("Locked") then
 				p14:SetAttribute("Locked", p14.HumanoidRootPart.CFrame)
 			end
@@ -362,6 +378,7 @@ do
 	t9.Sword = function(p16, p17)
 		if p16 then
 			if p17 then
+				if not CombatActionReady(p16) then return end
 				if not p16:GetAttribute("Locked") then
 					p16:SetAttribute("Locked", p16.HumanoidRootPart.CFrame)
 				end
@@ -390,6 +407,7 @@ end
 
 t9.Mas = function(p18, p19)
 	if p18 and p19 then
+		if not CombatActionReady(p18) then return end
 		if not p18:GetAttribute("Locked") then
 			p18:SetAttribute("Locked", p18.HumanoidRootPart.CFrame)
 		end
@@ -429,6 +447,7 @@ end
 do
 	t9.Masgun = function(p20, p21)
 		if p20 and p21 then
+			if not CombatActionReady(p20) then return end
 			if not p20:GetAttribute("Locked") then
 				p20:SetAttribute("Locked", p20.HumanoidRootPart.CFrame)
 			end

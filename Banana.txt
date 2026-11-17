@@ -1881,17 +1881,8 @@ do
 		end
 
 		getgenv().OnFarm = false
-		pcall(function()
-			if CanBypassTeleport(cFrame3) then
-				BypassTP(cFrame3)
-				task.wait(0.5)
-			end
-		end)
-		pcall(function()
-			requestentrance(p53)
-		end)
-
-
+		-- Deslocamentos de farm usam somente o tween normal; evita teleporte
+		-- instantaneo de longa distancia durante uma rota em andamento.
 
 		local Magnitude = (cFrame3.Position - HumanoidRootPart.Position).Magnitude
 		local tweenInfo = TweenInfo.new(Magnitude / (Magnitude <= 15 and (getgenv().TweenSpeedNear or 180) or getgenv().TweenSpeedFar or 150), Enum.EasingStyle.Linear)

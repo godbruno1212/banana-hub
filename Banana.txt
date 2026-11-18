@@ -6061,6 +6061,11 @@ BugnanaSpawn(function()
 	end
 end)
 _G.MasteryHealthPct = 70
+-- Mastery Gun M1 area selection adapted from the test script.
+_G.MasteryGunM1 = true
+_G.MasteryGunM1Radius = 200
+_G.MasteryGunM1MaxTargets = 8
+_G.MasteryGunM1Delay = 0.4
 _G.SelectedMasterySkills = {
 	Z = true,
 	X = true,
@@ -6094,6 +6099,33 @@ do
 			_G.MasteryHealthPct = p120
 		end
 	})
+    v595:AddToggle("Mastery_Gun_M1", {
+        Text = "Gun M1 em Area",
+        Default = true,
+        Callback = function(value)
+            _G.MasteryGunM1 = value
+        end
+    })
+    v595:AddSlider({
+        Text = "Gun M1 Raio (studs)",
+        Min = 60,
+        Max = 400,
+        Default = 200,
+        Rounding = 0,
+        Callback = function(value)
+            _G.MasteryGunM1Radius = value
+        end
+    })
+    v595:AddSlider({
+        Text = "Gun M1 Max NPCs",
+        Min = 1,
+        Max = 8,
+        Default = 8,
+        Rounding = 0,
+        Callback = function(value)
+            _G.MasteryGunM1MaxTargets = value
+        end
+    })
 	v595:AddDropdown("Select_Skills", {
 		Text = "Select Skills to Use",
 		Values = {
@@ -6206,8 +6238,84 @@ do
 			_G.FarmMastery_G = p124
 		end
 	})
-	-- Shared Cake/Bone Gun Mastery worker. Keep Melee equipped until the HP
--- threshold, then use Gun for the finishing hit. Never abort while holding Melee.
+	-- Gun Mastery (adapted from Bugnana Test / Quantum Onyx):
+-- stage 1 = Melee until target threshold; stage 2 = Gun M1 + selected skills.
+local masteryGunM1Parts = {}
+local masteryGunM1Seen = {}
+local function CollectMasteryGunM1Parts(primary, origin, thresholdPct)
+    table.clear(masteryGunM1Parts)
+    table.clear(masteryGunM1Seen)
+    local radius = math.clamp(tonumber(_G.MasteryGunM1Radius) or 200, 60, 400)
+    local radiusSquared = radius * radius
+    local limit = math.clamp(math.floor(tonumber(_G.MasteryGunM1MaxTargets) or 8), 1, 8)
+    local enemiesFolder = workspace:FindFirstChild("Enemies")
+    if not enemiesFolder then return masteryGunM1Parts end
+
+    local function append(model)
+        if not model or masteryGunM1Seen[model] or model.Parent ~= enemiesFolder then return end
+        local hum = model:FindFirstChildOfClass("Humanoid")
+        local root = model:FindFirstChild("HumanoidRootPart")
+        if not hum or not root or hum.Health <= 0 or hum.MaxHealth <= 0 then return end
+        if hum.Health / hum.MaxHealth * 100 > thresholdPct then return end
+        local offset = root.Position - origin
+        if offset:Dot(offset) > radiusSquared then return end
+        masteryGunM1Seen[model] = true
+        masteryGunM1Parts[#masteryGunM1Parts + 1] = root
+    end
+
+    -- Prioritize the target that was lowered with Melee.
+    append(primary)
+    if #masteryGunM1Parts < limit then
+        for _, model in ipairs(enemiesFolder:GetChildren()) do
+            if #masteryGunM1Parts >= limit then break end
+            append(model)
+        end
+    end
+    return masteryGunM1Parts
+end
+
+local function FireMasteryGunM1(tool, target, thresholdPct)
+    local playerCharacter = plr.Character
+    local root = playerCharacter and playerCharacter:FindFirstChild("HumanoidRootPart")
+    if not root or not tool or tool.Parent ~= playerCharacter then return false end
+    local parts = CollectMasteryGunM1Parts(target, root.Position, thresholdPct)
+    if #parts == 0 then return false end
+    local isGuitar = tool.Name == "Skull Guitar" or tool.Name == "Soul Guitar"
+    local shootStyles = tool.Name == "Dragonstorm"
+    if isGuitar then
+        local events = replicated:FindFirstChild("Events")
+        local shootSoul = events and events:FindFirstChild("ShootSoulGuitar")
+        if shootSoul and shootSoul:IsA("BindableFunction") then
+            local ok = pcall(function() shootSoul:Invoke(parts[1].Position) end)
+            if ok then return true end
+        end
+        local event = tool:FindFirstChild("RemoteEvent")
+        if event then
+            event:FireServer("TAP", parts[1].Position)
+            return true
+        end
+    end
+
+    local modules = replicated:FindFirstChild("Modules")
+    local network = modules and modules:FindFirstChild("Net")
+    local shoot = network and network:FindFirstChild("RE/ShootGunEvent")
+    if shoot then
+        -- Send a distinct aim/hit set for each M1 target, as in the test's
+        -- spread damage mode. A server may enforce stricter shot limits.
+        local targetLimit = shootStyles and #parts or math.min(#parts, 3)
+        for i = 1, targetLimit do
+            local part = parts[i]
+            if part and part.Parent then
+                shoot:FireServer(part.Position, { part })
+            end
+        end
+        return true
+    end
+    -- Preserve normal tool input if this version lacks a supported remote.
+    pcall(function() tool:Activate() end)
+    return true
+end
+
 BugnanaSpawn(function()
     local lastGunShotAt = -math.huge
     local lastMeleeAttackAt = -math.huge
@@ -6218,43 +6326,35 @@ BugnanaSpawn(function()
                 local bone = s14 == "Bone"
                 local target = GetConnectionEnemies(bone and t6 or t5)
                 if not target then
-                    local destination = bone
+                    _tp(bone
                         and CFrame.new(-9495.6806640625, 453.58624267578125, 5977.3486328125)
-                        or CFrame.new(-1943.676513671875, 251.50956726074219, -12337.880859375)
-                    _tp(destination)
+                        or CFrame.new(-1943.676513671875, 251.50956726074219, -12337.880859375))
                     return
                 end
-                local humanoid = target:FindFirstChildOfClass("Humanoid")
+                local hum = target:FindFirstChildOfClass("Humanoid")
                 local targetRoot = target:FindFirstChild("HumanoidRootPart")
-                if not humanoid or not targetRoot or humanoid.Health <= 0 then return end
-                local playerCharacter = plr.Character
-                if not playerCharacter or not playerCharacter:FindFirstChild("HumanoidRootPart") then return end
+                if not hum or not targetRoot or hum.Health <= 0 or hum.MaxHealth <= 0 then return end
+                local character = plr.Character
+                local root = character and character:FindFirstChild("HumanoidRootPart")
+                if not root then return end
 
                 local threshold = math.clamp(tonumber(_G.MasteryHealthPct) or 70, 10, 95)
-                HealthM = humanoid.MaxHealth * threshold / 100
+                HealthM = hum.MaxHealth * threshold / 100
                 MousePos = targetRoot.Position
-
-                -- t9.Masgun equips Melee while HP is high; do not shoot or exit
-                -- merely because the current tool is not yet a Gun.
+                -- Existing Bring Mob and tween routing stay intact.
                 t9.Masgun(target, true)
-                if humanoid.Health > HealthM then
+
+                if hum.Health > HealthM then
                     SoulGuitar = false
-                    -- The global Fast Attack remotes can be rejected. Also
-                    -- perform regular tool input while in melee range, so
-                    -- Mastery Gun is not dependent on remote hit registration.
                     weaponSc("Melee")
-                    local melee = playerCharacter:FindFirstChildOfClass("Tool")
-                    local playerRoot = playerCharacter:FindFirstChild("HumanoidRootPart")
-                    local inRange = playerRoot
-                        and (playerRoot.Position - targetRoot.Position).Magnitude <= 28
+                    local melee = character:FindFirstChildOfClass("Tool")
+                    local dist = (root.Position - targetRoot.Position).Magnitude
                     local now = os.clock()
                     if melee and (melee.ToolTip == "Melee"
                         or melee:GetAttribute("WeaponType") == "Melee")
-                        and inRange and now - lastMeleeAttackAt >= 0.16 then
+                        and dist <= 28 and now - lastMeleeAttackAt >= 0.16 then
                         lastMeleeAttackAt = now
                         pcall(function() melee:Activate() end)
-                        -- Normal mouse button input supports styles whose
-                        -- combat controller ignores Tool:Activate().
                         pcall(function()
                             vim1:SendMouseButtonEvent(0, 0, 0, true, game, 1)
                             vim1:SendMouseButtonEvent(0, 0, 0, false, game, 1)
@@ -6264,42 +6364,31 @@ BugnanaSpawn(function()
                 end
 
                 weaponSc("Gun")
-                local tool = playerCharacter:FindFirstChildOfClass("Tool")
-                if not tool or tool.ToolTip ~= "Gun" then
-                    if os.clock() - lastGunNoticeAt > 8 then
-                        warn("[Bugnana Mastery Gun] No Gun equipped or found in Backpack")
-                        lastGunNoticeAt = os.clock()
+                local tool = character:FindFirstChildOfClass("Tool")
+                if not tool or (tool.ToolTip ~= "Gun"
+                    and tool:GetAttribute("WeaponType") ~= "Gun") then
+                    local now = os.clock()
+                    if now - lastGunNoticeAt > 8 then
+                        warn("[Desgraça Mastery Gun] Nenhuma Gun equipada; verifique sua Backpack")
+                        lastGunNoticeAt = now
                     end
                     return
                 end
-
+                SoulGuitar = tool.Name == "Skull Guitar" or tool.Name == "Soul Guitar"
+                local delay = (tool.Name == "Dragonstorm") and 0.12
+                    or math.clamp(tonumber(_G.MasteryGunM1Delay) or 0.4, 0.18, 2)
                 local now = os.clock()
-                if now - lastGunShotAt < 0.18 then return end
+                if now - lastGunShotAt < delay then return end
                 lastGunShotAt = now
-                SoulGuitar = tool.Name == "Skull Guitar"
 
-                if SoulGuitar then
-                    local event = tool:FindFirstChild("RemoteEvent")
-                    if event then
-                        event:FireServer("TAP", MousePos)
-                    else
-                        tool:Activate()
-                    end
+                if _G.MasteryGunM1 ~= false then
+                    FireMasteryGunM1(tool, target, threshold)
                 else
-                    local modules = replicated:FindFirstChild("Modules")
-                    local network = modules and modules:FindFirstChild("Net")
-                    local shoot = network and network:FindFirstChild("RE/ShootGunEvent")
-                    if shoot then
-                        shoot:FireServer(MousePos, { targetRoot })
-                    else
-                        -- Fallback to the weapon's normal activation if its
-                        -- network remote is unavailable in this game version.
-                        tool:Activate()
-                    end
+                    pcall(function() tool:Activate() end)
                 end
             end)
             if not ok and _G.BugnanaMasteryDebug then
-                warn("[Bugnana Mastery Gun] ", err)
+                warn("[Desgraça Mastery Gun] ", err)
             end
         else
             SoulGuitar = false
@@ -6329,10 +6418,10 @@ if type(response) ~= "table" then return end
 
 					for _, v1 in next_, response, v611 do
 						if type(v1) == "table" and v1.Type == "Sword" and (tonumber(v1.Mastery) or 0) < 600 then
-							v613 = v1
-							exitTo = 1
-
-							break
+							if not v613 or (tonumber(v1.Mastery) or 0) < (tonumber(v613.Mastery) or 0) then
+                            v613 = v1
+                            exitTo = 1
+                        end
 						end
 					end
 
@@ -6386,10 +6475,10 @@ if type(response) ~= "table" then return end
 
 					for _, v1 in next_, response, v619 do
 						if type(v1) == "table" and v1.Type == "Sword" and (tonumber(v1.Mastery) or 0) < 600 then
-							v621 = v1
-							exitTo2 = 1
-
-							break
+							if not v621 or (tonumber(v1.Mastery) or 0) < (tonumber(v621.Mastery) or 0) then
+                            v621 = v1
+                            exitTo2 = 1
+                        end
 						end
 					end
 
@@ -31489,6 +31578,16 @@ local function AppendCombatTarget(model, record, Character, HumanoidRootPart, ta
     end
     if not humanoid or not targetRoot or humanoid.Health <= 0 then
         return targetCount
+    end
+    -- The test's mastery mode stops Melee from finishing enemies already
+    -- low enough for the mastery weapon. This leaves time to swap to Gun/Fruit.
+    if (_G.FarmMastery_G or _G.FarmMastery_Dev) and humanoid.MaxHealth > 0 then
+        local held = Character:FindFirstChildOfClass("Tool")
+        local heldType = held and (held:GetAttribute("WeaponType") or held.ToolTip)
+        if heldType == "Melee" and humanoid.Health / humanoid.MaxHealth * 100
+            <= math.clamp(tonumber(_G.MasteryHealthPct) or 70, 10, 95) then
+            return targetCount
+        end
     end
 
     local offset = targetRoot.Position - HumanoidRootPart.Position

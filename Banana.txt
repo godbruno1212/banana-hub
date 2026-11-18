@@ -2642,13 +2642,18 @@ end
 
 do
 	local v249 = t15.Info:AddLeftGroupbox("Game Time"):AddLabel("Loading game time...")
+	local lastDisplayedElapsed
 
 	local function UpdateGameTime()
 		local elapsed = math.max(0, math.floor((workspace.DistributedGameTime or 0) + 0.5))
+		if elapsed == lastDisplayedElapsed then
+			return
+		end
 		local hours = math.floor(elapsed / 3600)
 		local minutes = math.floor(elapsed / 60) % 60
 		local seconds = elapsed % 60
 		v249:SetText(string.format("%02d Hour(s) %02d Minute(s) %02d Second(s)", hours, minutes, seconds))
+		lastDisplayedElapsed = elapsed
 	end
 
 	BugnanaSpawn(function()
@@ -2824,6 +2829,7 @@ end
 
 do
 	BoneInfoLabel = t15.Info:AddLeftGroupbox("Bone"):AddLabel("Bones: Checking...")
+	local lastBoneLabel, lastBoneStatus
 
 	BugnanaSpawn(function()
 		while task.wait(2) do
@@ -2840,11 +2846,15 @@ do
 				end
 			end
 
-			pcall(function()
-				if BoneInfoLabel and type(BoneInfoLabel.SetText) == "function" then
-					BoneInfoLabel:SetText(status)
-				end
-			end)
+			local label = BoneInfoLabel
+			if label ~= lastBoneLabel or status ~= lastBoneStatus then
+				pcall(function()
+					if label and type(label.SetText) == "function" then
+						label:SetText(status)
+						lastBoneLabel, lastBoneStatus = label, status
+					end
+				end)
+			end
 		end
 	end)
 end

@@ -486,7 +486,11 @@ do
 
 				PosMon = p16:GetAttribute("Locked").Position
 				BringEnemy(p16)
-				weaponSc("Sword")
+				if type(SwordName) == "string" and SwordName ~= "" then
+EquipWeapon(SwordName)
+else
+weaponSc("Sword")
+end
 				_tp(p16.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
 
 				if RandomCFrame then
@@ -507,7 +511,7 @@ do
 end
 
 t9.Mas = function(p18, p19)
-	if p18 and p19 then
+	if p18 and p19 and p18:FindFirstChild("HumanoidRootPart") and p18:FindFirstChildOfClass("Humanoid") then
 		if not p18:GetAttribute("Locked") then
 			p18:SetAttribute("Locked", p18.HumanoidRootPart.CFrame)
 		end
@@ -517,6 +521,7 @@ t9.Mas = function(p18, p19)
 
 		if p18.Humanoid.Health <= HealthM then
 			_tp(p18.HumanoidRootPart.CFrame * CFrame.new(0, 20, 0))
+weaponSc("Blox Fruit")
 
 			local SelectedMasterySkills = _G.SelectedMasterySkills
 
@@ -546,7 +551,7 @@ end
 
 do
 	t9.Masgun = function(p20, p21)
-		if p20 and p21 then
+		if p20 and p21 and p20:FindFirstChild("HumanoidRootPart") and p20:FindFirstChildOfClass("Humanoid") then
 			if not p20:GetAttribute("Locked") then
 				p20:SetAttribute("Locked", p20.HumanoidRootPart.CFrame)
 			end
@@ -804,7 +809,15 @@ do
 		return true
 	end
 
-	Useskills = function(p29, p30)
+	local masterySkillCooldown = {}
+Useskills = function(p29, p30)
+if (_G.FarmMastery_Dev or _G.FarmMastery_G) and type(p30) == "string" then
+local now = os.clock()
+local key = tostring(p29) .. ":" .. p30
+if now - (masterySkillCooldown[key] or -math.huge) < 0.55 then return end
+masterySkillCooldown[key] = now
+end
+
 		if p29 == "Melee" then
 			weaponSc("Melee")
 
@@ -6136,7 +6149,8 @@ do
 						if v599 then
 							while true do
 								wait()
-								HealthM = v599.Humanoid.MaxHealth * (_G.MasteryHealthPct / 100)
+								if not v599.Parent or not v599:FindFirstChild("HumanoidRootPart") or not v599:FindFirstChildOfClass("Humanoid") then break end
+ HealthM = v599.Humanoid.MaxHealth * (math.clamp(tonumber(_G.MasteryHealthPct) or 70, 10, 95) / 100)
 								MousePos = v599.HumanoidRootPart.Position
 								t9.Mas(v599, _G.FarmMastery_Dev)
 
@@ -6159,7 +6173,8 @@ do
 						if v600 then
 							while true do
 								wait()
-								HealthM = v600.Humanoid.MaxHealth * (_G.MasteryHealthPct / 100)
+								if not v600.Parent or not v600:FindFirstChild("HumanoidRootPart") or not v600:FindFirstChildOfClass("Humanoid") then break end
+ HealthM = v600.Humanoid.MaxHealth * (math.clamp(tonumber(_G.MasteryHealthPct) or 70, 10, 95) / 100)
 								MousePos = v600.HumanoidRootPart.Position
 								t9.Mas(v600, _G.FarmMastery_Dev)
 
@@ -6198,14 +6213,17 @@ do
 
 							repeat
 								wait()
-								MousePos = v601.HumanoidRootPart.Position
+								if not v601.Parent or not v601:FindFirstChild("HumanoidRootPart") or not v601:FindFirstChildOfClass("Humanoid") then break end
+ MousePos = v601.HumanoidRootPart.Position
 								t9.Masgun(v601, _G.FarmMastery_G)
 
-								local REShootGunEvent = replicated:FindFirstChild("Modules"):FindFirstChild("Net"):FindFirstChild("RE/ShootGunEvent")
+								local modules = replicated:FindFirstChild("Modules")
+local net = modules and modules:FindFirstChild("Net")
+local REShootGunEvent = net and net:FindFirstChild("RE/ShootGunEvent")
 
-								if plr.Character:FindFirstChildOfClass("Tool").ToolTip ~= "Gun" then
-									return
-								end
+								if not plr.Character or not plr.Character:FindFirstChildOfClass("Tool") or plr.Character:FindFirstChildOfClass("Tool").ToolTip ~= "Gun" then
+break
+end
 
 								local Character, Character2
 
@@ -6228,7 +6246,7 @@ do
 
 											if Character2:FindFirstChildOfClass("Tool").Name ~= "Skull Guitar" then
 												SoulGuitar = false
-												REShootGunEvent:FireServer(MousePos, { v601.HumanoidRootPart })
+												if REShootGunEvent then REShootGunEvent:FireServer(MousePos, { v601.HumanoidRootPart }) end
 
 												if _G.FarmMastery_G then
 													vim1:SendMouseButtonEvent(0, 0, 0, true, game, 1)
@@ -6247,7 +6265,7 @@ do
 
 										if Character2:FindFirstChildOfClass("Tool").Name ~= "Skull Guitar" then
 											SoulGuitar = false
-											REShootGunEvent:FireServer(MousePos, { v601.HumanoidRootPart })
+											if REShootGunEvent then REShootGunEvent:FireServer(MousePos, { v601.HumanoidRootPart }) end
 
 											if _G.FarmMastery_G then
 												vim1:SendMouseButtonEvent(0, 0, 0, true, game, 1)
@@ -6276,14 +6294,17 @@ do
 
 							repeat
 								wait()
-								MousePos = v605.HumanoidRootPart.Position
+								if not v605.Parent or not v605:FindFirstChild("HumanoidRootPart") or not v605:FindFirstChildOfClass("Humanoid") then break end
+ MousePos = v605.HumanoidRootPart.Position
 								t9.Masgun(v605, _G.FarmMastery_G)
 
-								local REShootGunEvent = replicated:FindFirstChild("Modules"):FindFirstChild("Net"):FindFirstChild("RE/ShootGunEvent")
+								local modules = replicated:FindFirstChild("Modules")
+local net = modules and modules:FindFirstChild("Net")
+local REShootGunEvent = net and net:FindFirstChild("RE/ShootGunEvent")
 
-								if plr.Character:FindFirstChildOfClass("Tool").ToolTip ~= "Gun" then
-									return
-								end
+								if not plr.Character or not plr.Character:FindFirstChildOfClass("Tool") or plr.Character:FindFirstChildOfClass("Tool").ToolTip ~= "Gun" then
+break
+end
 
 								local Character, Character2
 
@@ -6306,7 +6327,7 @@ do
 
 											if Character2:FindFirstChildOfClass("Tool").Name ~= "Skull Guitar" then
 												SoulGuitar = false
-												REShootGunEvent:FireServer(MousePos, { v605.HumanoidRootPart })
+												if REShootGunEvent then REShootGunEvent:FireServer(MousePos, { v605.HumanoidRootPart }) end
 
 												if _G.FarmMastery_G then
 													vim1:SendMouseButtonEvent(0, 0, 0, true, game, 1)
@@ -6325,7 +6346,7 @@ do
 
 										if Character2:FindFirstChildOfClass("Tool").Name ~= "Skull Guitar" then
 											SoulGuitar = false
-											REShootGunEvent:FireServer(MousePos, { v605.HumanoidRootPart })
+											if REShootGunEvent then REShootGunEvent:FireServer(MousePos, { v605.HumanoidRootPart }) end
 
 											if _G.FarmMastery_G then
 												vim1:SendMouseButtonEvent(0, 0, 0, true, game, 1)
@@ -6368,11 +6389,12 @@ do
 				if s14 == "Cake" then
 					local next_ = next
 					local response, v611 = replicated.Remotes.CommF_:InvokeServer("getInventory")
+if type(response) ~= "table" then return end
 					local exitTo
 					local v613
 
 					for _, v1 in next_, response, v611 do
-						if type(v1) == "table" and v1.Type == "Sword" then
+						if type(v1) == "table" and v1.Type == "Sword" and (tonumber(v1.Mastery) or 0) < 600 then
 							v613 = v1
 							exitTo = 1
 
@@ -6383,7 +6405,7 @@ do
 					if exitTo == 1 then
 						SwordName = v613.Name
 
-						if tonumber(v613.Mastery) >= 1 or tonumber(v613.Mastery) <= 599 then
+						if (tonumber(v613.Mastery) or 0) < 600 then
 							local v616 = GetConnectionEnemies(t5)
 
 							if not GetBP(SwordName) then
@@ -6395,7 +6417,8 @@ do
 							if v616 then
 								while true do
 									wait()
-									t9.Sword(v616, _G.FarmMastery_S)
+									if not v616.Parent or not v616:FindFirstChild("HumanoidRootPart") or not v616:FindFirstChildOfClass("Humanoid") then break end
+ t9.Sword(v616, _G.FarmMastery_S)
 
 									if _G.FarmMastery_S == false then
 										break
@@ -6408,7 +6431,7 @@ do
 							end
 
 							return
-						elseif tonumber(v613.Mastery) >= 600 then
+						elseif (tonumber(v613.Mastery) or 0) >= 600 then
 							if GetBP(SwordName) then
 								return nil
 							end
@@ -6423,11 +6446,12 @@ do
 
 					local next_ = next
 					local response, v619 = replicated.Remotes.CommF_:InvokeServer("getInventory")
+if type(response) ~= "table" then return end
 					local exitTo2
 					local v621
 
 					for _, v1 in next_, response, v619 do
-						if type(v1) == "table" and v1.Type == "Sword" then
+						if type(v1) == "table" and v1.Type == "Sword" and (tonumber(v1.Mastery) or 0) < 600 then
 							v621 = v1
 							exitTo2 = 1
 
@@ -6438,7 +6462,7 @@ do
 					if exitTo2 == 1 then
 						SwordName = v621.Name
 
-						if tonumber(v621.Mastery) >= 1 or tonumber(v621.Mastery) <= 599 then
+						if (tonumber(v621.Mastery) or 0) < 600 then
 							local v624 = GetConnectionEnemies(t6)
 
 							if not GetBP(SwordName) then
@@ -6450,7 +6474,8 @@ do
 							if v624 then
 								while true do
 									wait()
-									t9.Sword(v624, _G.FarmMastery_S)
+									if not v624.Parent or not v624:FindFirstChild("HumanoidRootPart") or not v624:FindFirstChildOfClass("Humanoid") then break end
+ t9.Sword(v624, _G.FarmMastery_S)
 
 									if _G.FarmMastery_S == false then
 										break
@@ -6467,7 +6492,7 @@ do
 							return
 						end
 
-						if tonumber(v621.Mastery) >= 600 then
+						if (tonumber(v621.Mastery) or 0) >= 600 then
 							if GetBP(SwordName) then
 								return nil
 							end
@@ -31799,7 +31824,8 @@ local combatFlags = {
 		"Snaguine", "Auto_Mink", "Auto_Human", "Auto_Skypiea", "Auto_Fish",
 		"AcientOne", "Complete_Trials", "Dojoo", "AutoFireFlowers", "TrainDrago",
 		"Shark", "TerrorShark", "Piranha", "MobCrew", "HCM", "Raiding",
-		"AutoLawKak", "AutoFarmAllBoss", "Prehis_Skills", "FarmMastery_S"
+		"AutoLawKak", "AutoFarmAllBoss", "Prehis_Skills", "FarmMastery_S",
+    "FarmMastery_G", "FarmMastery_Dev"
 }
 local lastCombatFlagCheck = 0
 local lastCombatFlagResult = false

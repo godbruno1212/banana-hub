@@ -73,6 +73,8 @@ BossList = {}
 MaterialList = {}
 NPCList = {}
 shouldTween = false
+-- The Fast Attack toggle starts enabled; the UI may not fire its callback on load.
+if _G.Seriality == nil then _G.Seriality = true end
 getgenv().OnFarm = false
 getgenv().AutoMaterial = false
 NextIs = false
@@ -583,7 +585,7 @@ do
 				end
 			else
 				weaponSc("Melee")
-				_tp(p20.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
+_tp(p20.HumanoidRootPart.CFrame * CFrame.new(0, 10, 8))
 			end
 		end
 	end
@@ -953,24 +955,27 @@ do
 end
 
 GetConnectionEnemies = function(p31)
-	for _, child in pairs(replicated:GetChildren()) do
-		if child:IsA("Model") then
-			if (typeof(p31) == "table" and table.find(p31, child.Name) or child.Name == p31) and child:FindFirstChild("Humanoid") and child.Humanoid.Health > 0 then
-				return child
-			end
-		end
-	end
-
-	local children, v72 = game.Workspace.Enemies:GetChildren()
-
-	for _, v1 in next, children, v72 do
-		if v1:IsA("Model") then
-			if (typeof(p31) == "table" and table.find(p31, v1.Name) or v1.Name == p31) and v1:FindFirstChild("Humanoid") and v1.Humanoid.Health > 0 then
-				return v1
-			end
-		end
-	end
+    local container = workspace:FindFirstChild("Enemies")
+    if not container then return nil end
+    local nearest, minDist
+    local character = plr.Character
+    local playerRoot = character and character:FindFirstChild("HumanoidRootPart")
+    for _, model in ipairs(container:GetChildren()) do
+        if model:IsA("Model") and
+            (typeof(p31) == "table" and table.find(p31, model.Name) or model.Name == p31) then
+            local humanoid = model:FindFirstChildOfClass("Humanoid")
+            local root = model:FindFirstChild("HumanoidRootPart")
+            if humanoid and root and humanoid.Health > 0 then
+                local distance = playerRoot and (playerRoot.Position - root.Position).Magnitude or 0
+                if not minDist or distance < minDist then
+                    nearest, minDist = model, distance
+                end
+            end
+        end
+    end
+    return nearest
 end
+
 LowCpu = function()
 	local Terrain = game.Workspace.Terrain
 
@@ -31647,7 +31652,7 @@ local t55 = {
 		end
 
 		local Tool = Character:FindFirstChildOfClass("Tool")
-		local weaponType = Tool and Tool:GetAttribute("WeaponType")
+		local weaponType = Tool and (Tool:GetAttribute("WeaponType") or Tool.ToolTip)
 
 		if weaponType ~= "Melee" and weaponType ~= "Sword" then
 			return
@@ -31777,7 +31782,7 @@ do
 				if _G.Seriality and IsBugnanaCombatFarmActive() then
 					local Character = LocalPlayer3.Character
 					local Tool = Character and Character:FindFirstChildOfClass("Tool")
-					local weaponType = Tool and Tool:GetAttribute("WeaponType")
+					local weaponType = Tool and (Tool:GetAttribute("WeaponType") or Tool.ToolTip)
 
 					if weaponType == "Melee" or weaponType == "Sword" then
 						pcall(t55.Execute)

@@ -87,6 +87,10 @@ Brazier3 = false
 Sec = 0.1
 ClickState = 0
 Num_self = 25
+local BRING_RANGE = 650
+local BRING_RANGE_SQUARED = BRING_RANGE * BRING_RANGE
+local BRING_INTERVAL = 0.12
+local SIMULATION_RADIUS_REFRESH = 2
 
 do
 	local Loading
@@ -301,8 +305,6 @@ t9.DistH = function(p8, p9)
 	return (Root.Position - p8:FindFirstChild("HumanoidRootPart").Position).Magnitude > p9
 end
 
-local GROUP_DRAIN_RANGE_SQUARED = 500 * 500
-
 local function BuildBroughtGroup(initialTarget, anchorPosition)
 	local group = {}
 	local targetName = initialTarget.Name
@@ -313,7 +315,7 @@ local function BuildBroughtGroup(initialTarget, anchorPosition)
 
 		if enemy.Name == targetName and Humanoid and HumanoidRootPart and Humanoid.Health > 0 then
 			local offset = HumanoidRootPart.Position - anchorPosition
-			if offset:Dot(offset) <= GROUP_DRAIN_RANGE_SQUARED then
+			if offset:Dot(offset) <= BRING_RANGE_SQUARED then
 				group[#group + 1] = enemy
 			end
 		end
@@ -400,6 +402,7 @@ local function KillBroughtGroup(initialTarget, enabled, meleeOffsetZ, randomDela
 			break
 		end
 
+		BringEnemy(target)
 		MoveAroundTarget(target, meleeOffsetZ, randomDelay)
 		task.wait(0.05)
 	end
@@ -568,10 +571,7 @@ statsSetings = function(p22, p23)
 	end
 end
 local lastBringTarget, lastBringAt = nil, 0
-local lastSimulationRadiusAt = 0
-local BRING_RANGE = 500
-local BRING_RANGE_SQUARED = BRING_RANGE * BRING_RANGE
-local SIMULATION_RADIUS_REFRESH = 2
+local lastSimulationRadiusAt = -math.huge
 
 local function RefreshSimulationRadius()
 	if not sethiddenproperty then
@@ -621,12 +621,10 @@ BringEnemy = function(p24)
 	end
 
 	local now = os.clock()
-	if lastBringTarget == p24 and now - lastBringAt < 0.12 then
+	if lastBringTarget == p24 and now - lastBringAt < BRING_INTERVAL then
 		return
 	end
 	lastBringTarget, lastBringAt = p24, now
-
-	local u34 = false
 
 	local function v35(p25)
 		local Humanoid = p25:FindFirstChildOfClass("Humanoid")
@@ -639,13 +637,18 @@ BringEnemy = function(p24)
 			return isnetworkowner(p26)
 		end
 
-		return p26.ReceiveAge == 0 and not p26.Anchored and p26.Velocity.Magnitude > 0
+		return p26.ReceiveAge == 0 and not p26.Anchored
 	end
 
 	pcall(function()
 		RefreshSimulationRadius()
 
-		local Position = p24.HumanoidRootPart.Position
+		local targetRoot = p24:FindFirstChild("HumanoidRootPart")
+		if not targetRoot then
+			return
+		end
+
+		local Position = targetRoot.Position
 
 		for _, child in ipairs(workspace.Enemies:GetChildren()) do
 			if child ~= p24 and child.Name == p24.Name then
@@ -656,35 +659,37 @@ BringEnemy = function(p24)
 					local distanceSquared = offset:Dot(offset)
 
 					if distanceSquared <= BRING_RANGE_SQUARED then
-						if not v43:FindFirstChild("BodyVelocity") then
+						local stabilizer = v43:FindFirstChild("BugnanaBringVelocity") or v43:FindFirstChild("BodyVelocity")
+						if not stabilizer or not stabilizer:IsA("BodyVelocity") then
 							local BodyVelocity = Instance.new("BodyVelocity")
 
-							BodyVelocity.Name = "BodyVelocity"
+							BodyVelocity.Name = "BugnanaBringVelocity"
 							BodyVelocity.MaxForce = Vector3.new(1e9, 1e9, 1e9)
 							BodyVelocity.Velocity = Vector3.zero
 							BodyVelocity.Parent = v43
 						end
 
-						if distanceSquared <= 100 then
-							u34 = true
-						end
-
-						if not u34 and v38(v43) then
-							v43.CFrame = CFrame.new(Position)
+						if distanceSquared > 100 and v38(v43) then
+							v43.CFrame = targetRoot.CFrame
+							v43.AssemblyLinearVelocity = Vector3.zero
+							v43.AssemblyAngularVelocity = Vector3.zero
 						end
 
 						if v43.CanCollide then v43.CanCollide = false end
 						if v44.WalkSpeed ~= 0 then v44.WalkSpeed = 0 end
 						if v44.JumpPower ~= 0 then v44.JumpPower = 0 end
+						if v44.AutoRotate then v44.AutoRotate = false end
 					end
 				end
 			end
 		end
 
-		if p24 and p24:FindFirstChild("HumanoidRootPart") then
-			if p24.HumanoidRootPart.CanCollide then p24.HumanoidRootPart.CanCollide = false end
-			if p24.Humanoid.WalkSpeed ~= 0 then p24.Humanoid.WalkSpeed = 0 end
-			if p24.Humanoid.JumpPower ~= 0 then p24.Humanoid.JumpPower = 0 end
+		local targetHumanoid = p24 and p24:FindFirstChildOfClass("Humanoid")
+		if targetRoot and targetHumanoid then
+			if targetRoot.CanCollide then targetRoot.CanCollide = false end
+			if targetHumanoid.WalkSpeed ~= 0 then targetHumanoid.WalkSpeed = 0 end
+			if targetHumanoid.JumpPower ~= 0 then targetHumanoid.JumpPower = 0 end
+			if targetHumanoid.AutoRotate then targetHumanoid.AutoRotate = false end
 		end
 	end)
 end

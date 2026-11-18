@@ -4,7 +4,11 @@ if type(previousBugnanaShutdown) == "function" then
     pcall(previousBugnanaShutdown)
 end
 
-local BugnanaState = { Running = true, Tasks = {}, Connections = {} }
+local BugnanaState = {
+	Running = true,
+	Tasks = setmetatable({}, { __mode = "k" }),
+	Connections = {}
+}
 local rawTaskSpawn = task.spawn
 
 local function BugnanaSpawn(callback, ...)
@@ -13,7 +17,7 @@ local function BugnanaSpawn(callback, ...)
     local thread = rawTaskSpawn(function()
         if BugnanaState.Running then callback(table.unpack(args, 1, args.n)) end
     end)
-    table.insert(BugnanaState.Tasks, thread)
+	BugnanaState.Tasks[thread] = true
     return thread
 end
 
@@ -521,6 +525,25 @@ statsSetings = function(p22, p23)
 	end
 end
 local lastBringTarget, lastBringAt = nil, 0
+local lastSimulationRadiusAt = 0
+local BRING_RANGE = 500
+local BRING_RANGE_SQUARED = BRING_RANGE * BRING_RANGE
+local SIMULATION_RADIUS_REFRESH = 2
+
+local function RefreshSimulationRadius()
+	if not sethiddenproperty then
+		return
+	end
+
+	local now = os.clock()
+	if now - lastSimulationRadiusAt < SIMULATION_RADIUS_REFRESH then
+		return
+	end
+
+	lastSimulationRadiusAt = now
+	sethiddenproperty(plr, "SimulationRadius", BRING_RANGE + 200)
+end
+
 BringEnemy = function(p24)
 	if not _B then
 		return
@@ -577,9 +600,7 @@ BringEnemy = function(p24)
 	end
 
 	pcall(function()
-		if sethiddenproperty then
-			sethiddenproperty(plr, "SimulationRadius", math.huge)
-		end
+		RefreshSimulationRadius()
 
 		local Position = p24.HumanoidRootPart.Position
 
@@ -588,9 +609,10 @@ BringEnemy = function(p24)
 				local v42, v43, v44 = v35(child)
 
 				if v42 then
-					local Magnitude = (v43.Position - Position).Magnitude
+					local offset = v43.Position - Position
+					local distanceSquared = offset:Dot(offset)
 
-					if Magnitude <= 3000 then
+					if distanceSquared <= BRING_RANGE_SQUARED then
 						if not v43:FindFirstChild("BodyVelocity") then
 							local BodyVelocity = Instance.new("BodyVelocity")
 
@@ -600,7 +622,7 @@ BringEnemy = function(p24)
 							BodyVelocity.Parent = v43
 						end
 
-						if Magnitude <= 10 then
+						if distanceSquared <= 100 then
 							u34 = true
 						end
 
@@ -2567,7 +2589,7 @@ local function BugnanaShutdown()
     for _, connection in ipairs(BringConnections) do
         pcall(function() connection:Disconnect() end)
     end
-    for _, thread in ipairs(BugnanaState.Tasks) do
+	for thread in pairs(BugnanaState.Tasks) do
         pcall(task.cancel, thread)
     end
     pcall(function()
@@ -31643,6 +31665,7 @@ local t55 = {
 		end
 
 		local t59 = {}
+		local targetCount = 0
 
 		local function v1610(p368)
 			local children = p368:GetChildren()
@@ -31652,16 +31675,12 @@ local t55 = {
 				local Humanoid = v1613:FindFirstChild("Humanoid")
 				local HumanoidRootPart2 = v1613:FindFirstChild("HumanoidRootPart")
 
-				if Humanoid and HumanoidRootPart2 and Humanoid.Health > 0 and v1613 ~= Character and (HumanoidRootPart2.Position - HumanoidRootPart.Position).Magnitude <= 60 then
-					local children2 = v1613:GetChildren()
-
-					for _, v1 in ipairs(children2) do
-						if v1:IsA("BasePart") then
-							table.insert(t59, {
-								v1613,
-								v1
-							})
-						end
+				local offset = HumanoidRootPart2 and HumanoidRootPart2.Position - HumanoidRootPart.Position
+				if Humanoid and Humanoid.Health > 0 and v1613 ~= Character and offset and offset:Dot(offset) <= 3600 then
+					local hitPart = v1613:FindFirstChild("Head") or HumanoidRootPart2 or v1613.PrimaryPart
+					if hitPart then
+						targetCount = targetCount + 1
+						t59[targetCount] = { v1613, hitPart }
 					end
 				end
 			end
@@ -31703,8 +31722,7 @@ local function v1626()
 	require(ReplicatedStorage4.Util.CameraShaker):Stop()
 end
 
-local function IsBugnanaCombatFarmActive()
-	local combatFlags = {
+local combatFlags = {
 		"Level",
 		"FarmEliteHunt", "FarmEliteH",
 		"Auto_Cake_Prince", "AutoDoughKing", "AutoAttackDoughKing", "AutoHop_Dough",
@@ -31723,7 +31741,16 @@ local function IsBugnanaCombatFarmActive()
 		"AcientOne", "Complete_Trials", "Dojoo", "AutoFireFlowers", "TrainDrago",
 		"Shark", "TerrorShark", "Piranha", "MobCrew", "HCM", "Raiding",
 		"AutoLawKak", "AutoFarmAllBoss", "Prehis_Skills", "FarmMastery_S"
-	}
+}
+local lastCombatFlagCheck = 0
+local lastCombatFlagResult = false
+
+local function IsBugnanaCombatFarmActive()
+	local now = os.clock()
+	if now - lastCombatFlagCheck < 0.1 then
+		return lastCombatFlagResult
+	end
+	lastCombatFlagCheck = now
 
 	local function hasActiveCombatFlag(env)
 		if type(env) ~= "table" then
@@ -31739,32 +31766,33 @@ local function IsBugnanaCombatFarmActive()
 		return false
 	end
 
-	if hasActiveCombatFlag(_G) then
-		return true
-	end
+	lastCombatFlagResult = hasActiveCombatFlag(_G)
 
-	if type(getgenv) == "function" then
+	if not lastCombatFlagResult and type(getgenv) == "function" then
 		local success, env = pcall(getgenv)
 		if success and env ~= _G and hasActiveCombatFlag(env) then
-			return true
+			lastCombatFlagResult = true
 		end
 	end
 
-	return false
+	return lastCombatFlagResult
 end
 
 do
 	local function v1627()
 		BugnanaSpawn(function()
-			while task.wait(t54.Rate) do
+			while task.wait(0.1) do
 				if IsBugnanaCombatFarmActive() then
-					t54.ExecuteFastAttack()
+					local Character = LocalPlayer3.Character
+					local Tool = Character and Character:FindFirstChildOfClass("Tool")
+					local weaponType = Tool and Tool:GetAttribute("WeaponType")
+
+					if weaponType == "Melee" or weaponType == "Sword" then
+						pcall(t55.Execute)
+					else
+						pcall(t54.ExecuteFastAttack)
+					end
 				end
-			end
-		end)
-		BugnanaConnect(RunService.Heartbeat, function()
-			if IsBugnanaCombatFarmActive() then
-				pcall(t55.Execute)
 			end
 		end)
 	end

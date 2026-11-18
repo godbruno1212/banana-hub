@@ -1942,7 +1942,7 @@ do
 		return ok and routed == true
 	end
 	local activeFarmTween, activeFarmTweenTarget
-	_tp = function(p53)
+	_tp = function(p53, skipPortalRoute)
 		local cFrame3
 
 		if typeof(p53) == "Vector3" then
@@ -1978,7 +1978,12 @@ do
 			Part.CFrame = HumanoidRootPart.CFrame
 		end
 
-		if sea3 and not exitedSubmerged then
+		if activeFarmTween and activeFarmTween.PlaybackState == Enum.PlaybackState.Playing
+			and activeFarmTweenTarget and (activeFarmTweenTarget - cFrame3.Position).Magnitude <= 2.5 then
+			return activeFarmTween
+		end
+
+		if sea3 and not exitedSubmerged and not skipPortalRoute then
 			pcall(function()
 				TrySmartPortalRoute(cFrame3)
 			end)
@@ -1992,9 +1997,6 @@ do
 
 		local Magnitude = (cFrame3.Position - HumanoidRootPart.Position).Magnitude
 		if activeFarmTween and activeFarmTween.PlaybackState == Enum.PlaybackState.Playing then
-			if activeFarmTweenTarget and (activeFarmTweenTarget - cFrame3.Position).Magnitude <= 2.5 then
-				return activeFarmTween
-			end
 			activeFarmTween:Cancel()
 		end
 		if Magnitude <= 2 then
@@ -5141,7 +5143,7 @@ do
 					if not root then return end
 					local enemy = FindLiveBoneEnemy()
 					if not enemy and _G.AcceptQuestBone and not _G.CheckQuestVisible(LocalPlayer) then
-						if (root.Position - QuestPosition.Position).Magnitude > 60 then notween(QuestPosition) end
+						if (root.Position - QuestPosition.Position).Magnitude > 60 then _tp(QuestPosition, true) end
 						root = GetBoneRoot()
 						if root and (root.Position - QuestPosition.Position).Magnitude <= 100
 							and _G.AutoFarm_Bone and _G.AcceptQuestBone
@@ -5172,7 +5174,7 @@ do
 								lastBoneRouteDebug = os.clock()
 								warn("[Bugnana Bone Debug] Rota chamada | Y=" .. math.floor(root.Position.Y) .. " | sea3=" .. tostring(sea3) .. " | destinoY=" .. math.floor(FarmPosition.Position.Y))
 							end
-							notween(FarmPosition)
+							_tp(FarmPosition, true)
 						end
 					end
 				end)

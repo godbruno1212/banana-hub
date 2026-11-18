@@ -6201,178 +6201,85 @@ do
 			_G.FarmMastery_G = p124
 		end
 	})
-	BugnanaSpawn(function()
-		while wait(Sec) do
-			if _G.FarmMastery_G then
-				pcall(function()
-					if s14 == "Cake" then
-						local v601 = GetConnectionEnemies(t5)
+	-- Shared Cake/Bone Gun Mastery worker. Keep Melee equipped until the HP
+-- threshold, then use Gun for the finishing hit. Never abort while holding Melee.
+BugnanaSpawn(function()
+    local lastGunShotAt = -math.huge
+    local lastGunNoticeAt = -math.huge
+    while task.wait(math.max(tonumber(Sec) or 0.1, 0.1)) do
+        if _G.FarmMastery_G and BugnanaState.Running then
+            local ok, err = pcall(function()
+                local bone = s14 == "Bone"
+                local target = GetConnectionEnemies(bone and t6 or t5)
+                if not target then
+                    local destination = bone
+                        and CFrame.new(-9495.6806640625, 453.58624267578125, 5977.3486328125)
+                        or CFrame.new(-1943.676513671875, 251.50956726074219, -12337.880859375)
+                    _tp(destination)
+                    return
+                end
+                local humanoid = target:FindFirstChildOfClass("Humanoid")
+                local targetRoot = target:FindFirstChild("HumanoidRootPart")
+                if not humanoid or not targetRoot or humanoid.Health <= 0 then return end
+                local playerCharacter = plr.Character
+                if not playerCharacter or not playerCharacter:FindFirstChild("HumanoidRootPart") then return end
 
-						if v601 then
-							HealthM = v601.Humanoid.MaxHealth * _G.MasteryHealthPct / 100
+                local threshold = math.clamp(tonumber(_G.MasteryHealthPct) or 70, 10, 95)
+                HealthM = humanoid.MaxHealth * threshold / 100
+                MousePos = targetRoot.Position
 
-							repeat
-								wait()
-								if not v601.Parent or not v601:FindFirstChild("HumanoidRootPart") or not v601:FindFirstChildOfClass("Humanoid") then break end
- MousePos = v601.HumanoidRootPart.Position
-								t9.Masgun(v601, _G.FarmMastery_G)
+                -- t9.Masgun equips Melee while HP is high; do not shoot or exit
+                -- merely because the current tool is not yet a Gun.
+                t9.Masgun(target, true)
+                if humanoid.Health > HealthM then
+                    SoulGuitar = false
+                    return
+                end
 
-								local modules = replicated:FindFirstChild("Modules")
-local net = modules and modules:FindFirstChild("Net")
-local REShootGunEvent = net and net:FindFirstChild("RE/ShootGunEvent")
+                weaponSc("Gun")
+                local tool = playerCharacter:FindFirstChildOfClass("Tool")
+                if not tool or tool.ToolTip ~= "Gun" then
+                    if os.clock() - lastGunNoticeAt > 8 then
+                        warn("[Bugnana Mastery Gun] No Gun equipped or found in Backpack")
+                        lastGunNoticeAt = os.clock()
+                    end
+                    return
+                end
 
-								if not plr.Character or not plr.Character:FindFirstChildOfClass("Tool") or plr.Character:FindFirstChildOfClass("Tool").ToolTip ~= "Gun" then
-break
-end
+                local now = os.clock()
+                if now - lastGunShotAt < 0.18 then return end
+                lastGunShotAt = now
+                SoulGuitar = tool.Name == "Skull Guitar"
 
-								local Character, Character2
-
-								if plr.Character:FindFirstChildOfClass("Tool") then
-									if plr.Character:FindFirstChildOfClass("Tool").Name == "Skull Guitar" then
-										SoulGuitar = true
-										plr.Character:FindFirstChildOfClass("Tool").RemoteEvent:FireServer("TAP", MousePos)
-
-										if _G.FarmMastery_G then
-											vim1:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-											wait(0.05)
-											vim1:SendMouseButtonEvent(0, 0, 0, false, game, 1)
-											wait(0.05)
-										end
-									else
-										Character = plr.Character
-
-										if Character:FindFirstChildOfClass("Tool") then
-											Character2 = plr.Character
-
-											if Character2:FindFirstChildOfClass("Tool").Name ~= "Skull Guitar" then
-												SoulGuitar = false
-												if REShootGunEvent then REShootGunEvent:FireServer(MousePos, { v601.HumanoidRootPart }) end
-
-												if _G.FarmMastery_G then
-													vim1:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-													wait(0.05)
-													vim1:SendMouseButtonEvent(0, 0, 0, false, game, 1)
-													wait(0.05)
-												end
-											end
-										end
-									end
-								else
-									Character = plr.Character
-
-									if Character:FindFirstChildOfClass("Tool") then
-										Character2 = plr.Character
-
-										if Character2:FindFirstChildOfClass("Tool").Name ~= "Skull Guitar" then
-											SoulGuitar = false
-											if REShootGunEvent then REShootGunEvent:FireServer(MousePos, { v601.HumanoidRootPart }) end
-
-											if _G.FarmMastery_G then
-												vim1:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-												wait(0.05)
-												vim1:SendMouseButtonEvent(0, 0, 0, false, game, 1)
-												wait(0.05)
-											end
-										end
-									end
-
-									if _G.FarmMastery_G == false or v601.Humanoid.Health <= 0 or not v601.Parent then
-										break
-									end
-								end
-							until _G.FarmMastery_G == false or v601.Humanoid.Health <= 0 or not v601.Parent
-
-							SoulGuitar = false
-						else
-							_tp(CFrame.new(-1943.676513671875, 251.50956726074219, -12337.880859375))
-						end
-					elseif s14 == "Bone" then
-						local v605 = GetConnectionEnemies(t6)
-
-						if v605 then
-							HealthM = v605.Humanoid.MaxHealth * _G.MasteryHealthPct / 100
-
-							repeat
-								wait()
-								if not v605.Parent or not v605:FindFirstChild("HumanoidRootPart") or not v605:FindFirstChildOfClass("Humanoid") then break end
- MousePos = v605.HumanoidRootPart.Position
-								t9.Masgun(v605, _G.FarmMastery_G)
-
-								local modules = replicated:FindFirstChild("Modules")
-local net = modules and modules:FindFirstChild("Net")
-local REShootGunEvent = net and net:FindFirstChild("RE/ShootGunEvent")
-
-								if not plr.Character or not plr.Character:FindFirstChildOfClass("Tool") or plr.Character:FindFirstChildOfClass("Tool").ToolTip ~= "Gun" then
-break
-end
-
-								local Character, Character2
-
-								if plr.Character:FindFirstChildOfClass("Tool") then
-									if plr.Character:FindFirstChildOfClass("Tool").Name == "Skull Guitar" then
-										SoulGuitar = true
-										plr.Character:FindFirstChildOfClass("Tool").RemoteEvent:FireServer("TAP", MousePos)
-
-										if _G.FarmMastery_G then
-											vim1:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-											wait(0.05)
-											vim1:SendMouseButtonEvent(0, 0, 0, false, game, 1)
-											wait(0.05)
-										end
-									else
-										Character = plr.Character
-
-										if Character:FindFirstChildOfClass("Tool") then
-											Character2 = plr.Character
-
-											if Character2:FindFirstChildOfClass("Tool").Name ~= "Skull Guitar" then
-												SoulGuitar = false
-												if REShootGunEvent then REShootGunEvent:FireServer(MousePos, { v605.HumanoidRootPart }) end
-
-												if _G.FarmMastery_G then
-													vim1:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-													wait(0.05)
-													vim1:SendMouseButtonEvent(0, 0, 0, false, game, 1)
-													wait(0.05)
-												end
-											end
-										end
-									end
-								else
-									Character = plr.Character
-
-									if Character:FindFirstChildOfClass("Tool") then
-										Character2 = plr.Character
-
-										if Character2:FindFirstChildOfClass("Tool").Name ~= "Skull Guitar" then
-											SoulGuitar = false
-											if REShootGunEvent then REShootGunEvent:FireServer(MousePos, { v605.HumanoidRootPart }) end
-
-											if _G.FarmMastery_G then
-												vim1:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-												wait(0.05)
-												vim1:SendMouseButtonEvent(0, 0, 0, false, game, 1)
-												wait(0.05)
-											end
-										end
-									end
-
-									if _G.FarmMastery_G == false or v605.Humanoid.Health <= 0 or not v605.Parent then
-										break
-									end
-								end
-							until _G.FarmMastery_G == false or v605.Humanoid.Health <= 0 or not v605.Parent
-
-							SoulGuitar = false
-						else
-							_tp(CFrame.new(-9495.6806640625, 453.58624267578125, 5977.3486328125))
-						end
-					end
-				end)
-			end
-		end
-	end)
-	v595:AddToggle("Auto_Mastery_All_Sword", {
+                if SoulGuitar then
+                    local event = tool:FindFirstChild("RemoteEvent")
+                    if event then
+                        event:FireServer("TAP", MousePos)
+                    else
+                        tool:Activate()
+                    end
+                else
+                    local modules = replicated:FindFirstChild("Modules")
+                    local network = modules and modules:FindFirstChild("Net")
+                    local shoot = network and network:FindFirstChild("RE/ShootGunEvent")
+                    if shoot then
+                        shoot:FireServer(MousePos, { targetRoot })
+                    else
+                        -- Fallback to the weapon's normal activation if its
+                        -- network remote is unavailable in this game version.
+                        tool:Activate()
+                    end
+                end
+            end)
+            if not ok and _G.BugnanaMasteryDebug then
+                warn("[Bugnana Mastery Gun] ", err)
+            end
+        else
+            SoulGuitar = false
+        end
+    end
+end)
+v595:AddToggle("Auto_Mastery_All_Sword", {
 		Text = "Auto Mastery All Sword",
 		Default = false,
 		Callback = function(p125)

@@ -31277,234 +31277,10 @@ do
 	end)
 end
 
-do
-	local LocalPlayer3 = game.Players.LocalPlayer
-
-	local function v1503(p358)
-		if not p358 then
-			return false
-		end
-
-		local Humanoid = p358:FindFirstChild("Humanoid")
-
-		return Humanoid and Humanoid.Health > 0
-	end
-	local function v1505(p359, p360)
-		local children = game:GetService("Workspace").Enemies:GetChildren()
-		local players = game:GetService("Players"):GetPlayers()
-		local t51 = {}
-		local Position = p359:GetPivot().Position
-
-		for _, child in ipairs(children) do
-			local HumanoidRootPart = child:FindFirstChild("HumanoidRootPart")
-
-			if HumanoidRootPart and v1503(child) and (HumanoidRootPart.Position - Position).Magnitude <= p360 then
-				table.insert(t51, child)
-			end
-		end
-
-		for _, player in ipairs(players) do
-			if player ~= LocalPlayer3 and player.Character then
-				local HumanoidRootPart = player.Character:FindFirstChild("HumanoidRootPart")
-
-				if HumanoidRootPart and v1503(player.Character) and (HumanoidRootPart.Position - Position).Magnitude <= p360 then
-					table.insert(t51, player.Character)
-				end
-			end
-		end
-
-		return t51
-	end
-
-	AttackNoCoolDown = function()
-		local LocalPlayer4 = game:GetService("Players").LocalPlayer
-		local Character = LocalPlayer4.Character
-
-		if not Character then
-			return
-		end
-
-		local v1518
-		local v1519, v1520, v1521 = ipairs(Character:GetChildren())
-		local v1522 = geniter(v1519, v1520, v1521)
-
-		while true do
-			local v1523 = table.pack(v1522())
-
-			if not v1523[1] then
-				break
-			end
-
-			local v1524 = v1523[3]
-
-			if v1524:IsA("Tool") then
-				v1518 = v1524
-
-				break
-			end
-		end
-
-		if not v1518 then
-			return
-		end
-
-		local v1525 = v1505(Character, 60)
-
-		if #v1525 == 0 then
-			return
-		end
-
-		local ReplicatedStorage4 = game:GetService("ReplicatedStorage")
-		local Modules = ReplicatedStorage4:FindFirstChild("Modules")
-
-		if not Modules then
-			return
-		end
-
-		local RERegisterAttack = ReplicatedStorage4:WaitForChild("Modules"):WaitForChild("Net"):WaitForChild("RE/RegisterAttack")
-		local RERegisterHit = ReplicatedStorage4:WaitForChild("Modules"):WaitForChild("Net"):WaitForChild("RE/RegisterHit")
-
-		if not RERegisterAttack or not RERegisterHit then
-			return
-		end
-
-		local t52 = {}
-		local v1531
-		local v1532, v1533, v1534 = ipairs(v1525)
-
-		for _, v1 in v1532, v1533, v1534 do
-			if not v1:GetAttribute("IsBoat") then
-				local t53 = {
-					"RightLowerArm",
-					"RightUpperArm",
-					"LeftLowerArm",
-					"LeftUpperArm",
-					"RightHand",
-					"LeftHand"
-				}
-				local PrimaryPart = v1:FindFirstChild(t53[math.random(#t53)]) or v1.PrimaryPart
-
-				if PrimaryPart then
-					table.insert(t52, {
-						v1,
-						PrimaryPart
-					})
-					v1531 = PrimaryPart
-				end
-			end
-		end
-
-		if not v1531 then
-			return
-		end
-
-		RERegisterAttack:FireServer(0)
-
-		local PlayerScripts = LocalPlayer4:FindFirstChild("PlayerScripts")
-
-		if not PlayerScripts then
-			return
-		end
-
-		local LocalScript = PlayerScripts:FindFirstChildOfClass("LocalScript")
-
-		while not LocalScript do
-			PlayerScripts.ChildAdded:Wait()
-			LocalScript = PlayerScripts:FindFirstChildOfClass("LocalScript")
-		end
-
-		local SendHitsToServer
-
-		if getsenv then
-			local ok, result = pcall(getsenv, LocalScript)
-
-			if ok and result then
-				SendHitsToServer = result._G.SendHitsToServer
-			end
-		end
-
-		local ok, result = pcall(function()
-			return require(Modules.Flags).COMBAT_REMOTE_THREAD or false
-		end)
-
-		if ok and result and SendHitsToServer then
-			SendHitsToServer(v1531, t52)
-		elseif ok and not result then
-			RERegisterHit:FireServer(v1531, t52)
-		end
-	end
-end
-
 CameraShakerR = require(game.ReplicatedStorage.Util.CameraShaker)
 CameraShakerR:Stop()
 
-do
-	get_Monster = function()
-		for _, child in pairs(workspace.Enemies:GetChildren()) do
-			local UpperTorso = child:FindFirstChild("UpperTorso") or child:FindFirstChild("Head")
-
-			if child:FindFirstChild("HumanoidRootPart", true) and UpperTorso and (child.Head.Position - LocalPlayer2.Character.HumanoidRootPart.Position).Magnitude <= 50 then
-				return true, UpperTorso.Position
-			end
-		end
-
-		for _, child in pairs(workspace.SeaBeasts:GetChildren()) do
-			if child:FindFirstChild("HumanoidRootPart") and child:FindFirstChild("Health") and child.Health.Value > 0 then
-				return true, child.HumanoidRootPart.Position
-			end
-		end
-
-		for _, child in pairs(workspace.Enemies:GetChildren()) do
-			if child:FindFirstChild("Health") and child.Health.Value > 0 and child:FindFirstChild("VehicleSeat") then
-				return true, child.Engine.Position
-			end
-		end
-	end
-end
-
-do
-	Actived = function()
-		local Tool = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool")
-		local v1554, v1555 = getconnections(Tool.Activated)
-
-		for _, v1 in next, v1554, v1555 do
-			if typeof(v1.Function) == "function" then
-				getupvalues(v1.Function)
-			end
-		end
-	end
-end
-
-do
-	BugnanaSpawn(function()
-		BugnanaConnect(RunSer.Heartbeat, function()
-			pcall(function()
-				if not _G.Seriality then
-					return
-				end
-
-				AttackNoCoolDown()
-
-				local Tool = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool")
-				local ToolTip = Tool.ToolTip
-				local v1560 = get_Monster()
-
-				if ToolTip == "Blox Fruit" and v1560 then
-					local LeftClickRemote = Tool:FindFirstChild("LeftClickRemote")
-
-					if LeftClickRemote then
-						Actived()
-						LeftClickRemote:FireServer(Vector3.new(0.01, -500, 0.01), 1, true)
-						LeftClickRemote:FireServer(false)
-					end
-				end
-			end)
-		end)
-	end)
-end
-
 local Players2 = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local ReplicatedStorage4 = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local LocalPlayer3 = Players2.LocalPlayer
@@ -31793,7 +31569,7 @@ do
 	local function v1627()
 		BugnanaSpawn(function()
 			while task.wait(t54.Rate) do
-				if IsBugnanaCombatFarmActive() then
+				if _G.Seriality and IsBugnanaCombatFarmActive() then
 					local Character = LocalPlayer3.Character
 					local Tool = Character and Character:FindFirstChildOfClass("Tool")
 					local weaponType = Tool and Tool:GetAttribute("WeaponType")
@@ -31805,12 +31581,15 @@ do
 						latestSecureTargetCount = 0
 						pcall(t54.ExecuteFastAttack)
 					end
+				else
+					latestSecureHead = nil
+					latestSecureTargetCount = 0
 				end
 			end
 		end)
 		BugnanaSpawn(function()
 			while task.wait(0.1) do
-				if IsBugnanaCombatFarmActive() then
+				if _G.Seriality and IsBugnanaCombatFarmActive() then
 					pcall(ExecuteSecureAttack)
 				else
 					latestSecureHead = nil

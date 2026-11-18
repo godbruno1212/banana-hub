@@ -31366,6 +31366,13 @@ local t54 = {
 
 local trackedCombatTargets = {}
 local hitTargetBuffer = {}
+-- Buffers reutilizados: nenhuma alocacao de tabelas por NPC/tick.
+local rotatedHitBuffer = {}
+local includedCombatTargets = {}
+local hitRotationCursor = 0
+local lastCombatDebugAt = -math.huge
+local combatDebugHealth = setmetatable({}, { __mode = "k" })
+local combatDebugDamaged = setmetatable({}, { __mode = "k" })
 local latestSecureHead
 local latestSecureTargetCount = 0
 
@@ -31392,81 +31399,129 @@ end
 
 BindCombatContainer(enemies)
 
-local function AppendCombatTarget(model, record, Character, HumanoidRootPart, ignoreDistance, targetCount)
-	if model == Character or not model.Parent then
-		return targetCount
-	end
 
-	local Humanoid = record.Humanoid
-	if not Humanoid or Humanoid.Parent ~= model then
-		Humanoid = model:FindFirstChildOfClass("Humanoid")
-		record.Humanoid = Humanoid
-	end
+local function AppendCombatTarget(model, record, Character, HumanoidRootPart, targetCount)
+    -- Nunca incluir personagens, NPCs removidos ou alvos que o jogador nao alcanca.
+    if model == Character or model.Parent ~= enemies then
+        return targetCount
+    end
 
-	local targetRoot = record.Root
-	if not targetRoot or targetRoot.Parent ~= model then
-		targetRoot = model:FindFirstChild("HumanoidRootPart")
-		record.Root = targetRoot
-	end
+    local humanoid = record.Humanoid
+    if not humanoid or humanoid.Parent ~= model then
+        humanoid = model:FindFirstChildOfClass("Humanoid")
+        record.Humanoid = humanoid
+    end
 
-	if not Humanoid or not targetRoot or Humanoid.Health <= 0 then
-		return targetCount
-	end
+    local targetRoot = record.Root
+    if not targetRoot or targetRoot.Parent ~= model then
+        targetRoot = model:FindFirstChild("HumanoidRootPart")
+        record.Root = targetRoot
+    end
+    if not humanoid or not targetRoot or humanoid.Health <= 0 then
+        return targetCount
+    end
 
-	local offset = targetRoot.Position - HumanoidRootPart.Position
-	if not ignoreDistance and offset:Dot(offset) > 3600 then
-		return targetCount
-	end
+    local offset = targetRoot.Position - HumanoidRootPart.Position
+    if offset:Dot(offset) > 3600 then
+        return targetCount
+    end
 
-	local hitPart = record.HitPart
-	if not hitPart or not hitPart.Parent then
-		hitPart = model:FindFirstChild("Head") or targetRoot or model.PrimaryPart
-		record.HitPart = hitPart
-	end
+    local hitPart = record.HitPart
+    if not hitPart or not hitPart:IsDescendantOf(model) then
+        hitPart = model:FindFirstChild("Head") or targetRoot
+        record.HitPart = hitPart
+    end
+    if not hitPart then
+        return targetCount
+    end
 
-	if not hitPart then
-		return targetCount
-	end
-
-	local payload = record.Payload
-	if not payload then
-		payload = { model, hitPart }
-		record.Payload = payload
-	else
-		payload[1] = model
-		payload[2] = hitPart
-	end
-
-	targetCount = targetCount + 1
-	hitTargetBuffer[targetCount] = payload
-	return targetCount
+    local payload = record.Payload
+    if not payload then
+        payload = { model, hitPart }
+        record.Payload = payload
+    else
+        payload[1], payload[2] = model, hitPart
+    end
+    targetCount += 1
+    hitTargetBuffer[targetCount] = payload
+    return targetCount
 end
 
 local function CollectCombatTargets(Character, HumanoidRootPart)
-	table.clear(hitTargetBuffer)
-	local targetCount = 0
-	local groupState = ActiveBroughtGroupState
+    table.clear(hitTargetBuffer)
+    table.clear(includedCombatTargets)
+    local targetCount = 0
+    local groupState = ActiveBroughtGroupState
 
-	if groupState and groupState.Targets then
-		for i = 1, #groupState.Targets do
-			local model = groupState.Targets[i]
-			local record = trackedCombatTargets[model]
-			if not record then
-				TrackCombatTarget(model)
-				record = trackedCombatTargets[model]
-			end
+    local function append(model)
+        if not model or includedCombatTargets[model] then return end
+        includedCombatTargets[model] = true
+        local record = trackedCombatTargets[model]
+        if not record and model.Parent == enemies then
+            TrackCombatTarget(model)
+            record = trackedCombatTargets[model]
+        end
+        if record then
+            targetCount = AppendCombatTarget(model, record, Character, HumanoidRootPart, targetCount)
+        end
+    end
 
-			if record then
-				targetCount = AppendCombatTarget(model, record, Character, HumanoidRootPart, false, targetCount)
-			end
-		end
-	else
-		for model, record in pairs(trackedCombatTargets) do
-			targetCount = AppendCombatTarget(model, record, Character, HumanoidRootPart, false, targetCount)
-		end
-	end
+    -- Primeiro os mobs do grupo, depois QUALQUER NPC em alcance, mesmo
+    -- quando seu nome for diferente ou ele apareceu depois de criar o grupo.
+    if groupState and groupState.Targets then
+        for i = 1, #groupState.Targets do
+            append(groupState.Targets[i])
+        end
+    end
+    for _, enemy in ipairs(enemies:GetChildren()) do
+        append(enemy)
+    end
 
-	return targetCount
+    table.clear(rotatedHitBuffer)
+    if targetCount > 1 then
+        -- Alguns hits podem ser aceitos apenas para os primeiros alvos do
+        -- pacote. Alternar quem vem primeiro evita deixar os mesmos 4-5
+        -- recebendo dano o tempo todo, SEM criar remotes adicionais.
+        local startIndex = (hitRotationCursor % targetCount) + 1
+        hitRotationCursor += 4
+        if startIndex ~= 1 then
+            for i = 1, targetCount do
+                rotatedHitBuffer[i] = hitTargetBuffer[((i + startIndex - 2) % targetCount) + 1]
+            end
+            for i = 1, targetCount do
+                hitTargetBuffer[i] = rotatedHitBuffer[i]
+            end
+        end
+    end
+
+    if _G.BugnanaCombatDebug then
+        -- Diagnostico opcional. Queda de HP nao comprova causalidade, mas
+        -- ajuda a diferenciar selecao de alvos de rejeicao no servidor.
+        for i = 1, targetCount do
+            local model = hitTargetBuffer[i][1]
+            local humanoid = model:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                local hp = humanoid.Health
+                if combatDebugHealth[model] and hp < combatDebugHealth[model] then
+                    combatDebugDamaged[model] = true
+                end
+                combatDebugHealth[model] = hp
+            end
+        end
+        local now = os.clock()
+        if now - lastCombatDebugAt >= 4 then
+            local damagedCount = 0
+            for _ in pairs(combatDebugDamaged) do damagedCount += 1 end
+            print(string.format(
+                "[Bugnana Combat] Em alcance=%d | No grupo=%d | Perderam HP no intervalo=%d",
+                targetCount,
+                groupState and groupState.Targets and #groupState.Targets or 0,
+                damagedCount))
+            table.clear(combatDebugDamaged)
+            lastCombatDebugAt = now
+        end
+    end
+    return targetCount
 end
 
 t54.ExecuteFastAttack = function()

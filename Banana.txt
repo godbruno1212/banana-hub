@@ -1391,11 +1391,9 @@ do
 					if Part and Part.Parent == workspace then
 						local PrimaryPart = LocalPlayer.Character and LocalPlayer.Character.PrimaryPart
 
-						if PrimaryPart and (PrimaryPart.Position - Part.Position).Magnitude <= 200 then
-							PrimaryPart.CFrame = CFrame.new(Part.Position)
-						else
-							Part.CFrame = PrimaryPart.CFrame
-						end
+						if PrimaryPart then
+Part.CFrame = PrimaryPart.CFrame
+end
 					end
 
 					local Character = LocalPlayer.Character
@@ -1987,7 +1985,73 @@ do
 		return ok and routed == true
 	end
 	local activeFarmTween, activeFarmTweenTarget
-	_tp = function(p53, skipPortalRoute)
+local tweenGeneration = 0
+
+-- Quantum Onyx-inspired motion engine. It moves the actual HumanoidRootPart,
+-- supports native TweenService and frame-time Lerp, and exposes the same
+-- Cancel / Completed:Wait / PlaybackState interface expected by existing farms.
+local function CreateBugnanaLerp(root, target, speed, generation)
+    local completed = Instance.new("BindableEvent")
+    local controller = {
+        Completed = completed.Event,
+        PlaybackState = Enum.PlaybackState.Playing,
+    }
+    local settled = false
+    local function finish(state)
+        if settled then return end
+        settled = true
+        controller.PlaybackState = state
+        completed:Fire(state)
+        task.delay(3, function() completed:Destroy() end)
+    end
+    function controller:Cancel()
+        finish(Enum.PlaybackState.Cancelled)
+    end
+
+    BugnanaSpawn(function()
+        local ok, err = pcall(function()
+            local initial = root.Position
+            local finalPos = target.Position
+            local distance = (finalPos - initial).Magnitude
+            local progress = 0
+            local lastTick = os.clock()
+            local started = lastTick
+            local maxTime = math.max(5, distance / speed * 3 + 5)
+            while not settled and generation == tweenGeneration and shouldTween do
+                if not root.Parent or not plr.Character or plr.Character.HumanoidRootPart ~= root then
+                    break
+                end
+                local now = os.clock()
+                local dt = math.min(now - lastTick, 0.05)
+                lastTick = now
+                if now - started > maxTime then break end
+                local current = root.Position
+                if (current - finalPos).Magnitude <= 6 then
+                    root.CFrame = target
+                    finish(Enum.PlaybackState.Completed)
+                    break
+                end
+                -- When a portal or game relocation moves the player, rebase
+                -- instead of snapping them back across the map.
+                if (current - initial).Magnitude > progress + 200 then
+                    initial = current
+                    distance = (finalPos - initial).Magnitude
+                    progress = 0
+                end
+                progress = math.min(distance, progress + math.min(speed * dt, math.min(speed / 30, 18)))
+                local alpha = distance > 0 and math.clamp(progress / distance, 0, 1) or 1
+                root.CFrame = CFrame.new(initial:Lerp(finalPos, alpha)) * (target - target.Position)
+                root.AssemblyLinearVelocity = Vector3.zero
+                task.wait()
+            end
+        end)
+        if not ok then warn("[Bugnana Tween] Lerp error:", err) end
+        if not settled then finish(Enum.PlaybackState.Cancelled) end
+    end)
+    return controller
+end
+
+_tp = function(p53, skipPortalRoute)
 		local cFrame3
 
 		if typeof(p53) == "Vector3" then
@@ -2041,46 +2105,48 @@ do
 		-- instantaneo de longa distancia durante uma rota em andamento.
 
 		local Magnitude = (cFrame3.Position - HumanoidRootPart.Position).Magnitude
-		if activeFarmTween and activeFarmTween.PlaybackState == Enum.PlaybackState.Playing then
-			activeFarmTween:Cancel()
-		end
-		if Magnitude <= 2 then
-			getgenv().OnFarm = true
-			return nil
-		end
-
-		local tweenInfo = TweenInfo.new(Magnitude / (Magnitude <= 15 and (getgenv().TweenSpeedNear or 180) or getgenv().TweenSpeedFar or 150), Enum.EasingStyle.Linear)
-		local tween = game:GetService("TweenService"):Create(Part, tweenInfo, {
-			CFrame = CFrame.new(cFrame3.Position)
-		})
-
-		if plr.Character.Humanoid.Sit == true then
-			Part.CFrame = CFrame.new(Part.Position.X, cFrame3.Y, Part.Position.Z)
-		end
-
-		activeFarmTween = tween
-		activeFarmTweenTarget = cFrame3.Position
-		tween:Play()
-		BugnanaSpawn(function()
-			while tween.PlaybackState == Enum.PlaybackState.Playing do
-				if shouldTween then
-					task.wait(0.1)
-				else
-					tween:Cancel()
-
-					break
-				end
-			end
-
-			if activeFarmTween == tween then
-				getgenv().OnFarm = true
-			end
-		end)
-
-		return tween
-	end
+if activeFarmTween and activeFarmTween.PlaybackState == Enum.PlaybackState.Playing
+and activeFarmTweenTarget and (activeFarmTweenTarget - cFrame3.Position).Magnitude <= 2.5 then
+return activeFarmTween
+end
+if activeFarmTween and activeFarmTween.PlaybackState == Enum.PlaybackState.Playing then
+activeFarmTween:Cancel()
+end
+tweenGeneration = tweenGeneration + 1
+if Magnitude <= 2 then
+getgenv().OnFarm = true
+return nil
 end
 
+-- The test engine has Lerp/TweenService selection and distance-based speed.
+local userSpeed = tonumber(getgenv().TweenSpeed)
+local speed = math.clamp(userSpeed or (Magnitude <= 15
+    and (tonumber(getgenv().TweenSpeedNear) or 180)
+    or (tonumber(getgenv().TweenSpeedFar) or 200)), 10, 600)
+local mode = getgenv().TweenMode or "Lerp"
+local tween
+if mode == "TweenService" then
+    tween = TW:Create(HumanoidRootPart,
+        TweenInfo.new(Magnitude / speed, Enum.EasingStyle.Linear),
+        { CFrame = cFrame3 })
+    tween:Play()
+else
+    tween = CreateBugnanaLerp(HumanoidRootPart, cFrame3, speed, tweenGeneration)
+end
+activeFarmTween = tween
+activeFarmTweenTarget = cFrame3.Position
+
+BugnanaSpawn(function()
+    local state = tween.Completed:Wait()
+    if activeFarmTween == tween then
+        activeFarmTween = nil
+        activeFarmTweenTarget = nil
+        getgenv().OnFarm = state == Enum.PlaybackState.Completed
+    end
+end)
+return tween
+end
+end
 old_tp = function(p54)
 	if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
 		plr.Character.HumanoidRootPart.CFrame = p54

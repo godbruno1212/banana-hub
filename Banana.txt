@@ -301,73 +301,116 @@ t9.DistH = function(p8, p9)
 	return (Root.Position - p8:FindFirstChild("HumanoidRootPart").Position).Magnitude > p9
 end
 
-do
-	t9.Kill = function(p10, p11)
-		if p10 and p11 then
-			if not p10:GetAttribute("Locked") then
-				p10:SetAttribute("Locked", p10.HumanoidRootPart.CFrame)
-			end
+local GROUP_DRAIN_RANGE_SQUARED = 500 * 500
 
-			PosMon = p10:GetAttribute("Locked").Position
-			BringEnemy(p10)
-			EquipWeapon(_G.SelectWeapon)
+local function BuildBroughtGroup(initialTarget, anchorPosition)
+	local group = {}
+	local targetName = initialTarget.Name
 
-			local Tool = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool")
+	for _, enemy in ipairs(Enemies:GetChildren()) do
+		local Humanoid = enemy:FindFirstChildOfClass("Humanoid")
+		local HumanoidRootPart = enemy:FindFirstChild("HumanoidRootPart")
 
-			if (Tool and Tool:FindFirstChild("ToolTip") and Tool.ToolTip or "") == "Blox Fruit" then
-				_tp(p10.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0) * CFrame.Angles(0, math.rad(90), 0))
-			else
-				_tp(p10.HumanoidRootPart.CFrame * CFrame.new(0, 10, 0) * CFrame.Angles(0, math.rad(180), 0))
-			end
-
-			if RandomCFrame then
-				wait(0.5)
-				_tp(p10.HumanoidRootPart.CFrame * CFrame.new(0, 30, 25))
-				wait(0.5)
-				_tp(p10.HumanoidRootPart.CFrame * CFrame.new(25, 30, 0))
-				wait(0.5)
-				_tp(p10.HumanoidRootPart.CFrame * CFrame.new(-25, 30, 0))
-				wait(0.5)
-				_tp(p10.HumanoidRootPart.CFrame * CFrame.new(0, 30, 25))
-				wait(0.5)
-				_tp(p10.HumanoidRootPart.CFrame * CFrame.new(-25, 30, 0))
+		if enemy.Name == targetName and Humanoid and HumanoidRootPart and Humanoid.Health > 0 then
+			local offset = HumanoidRootPart.Position - anchorPosition
+			if offset:Dot(offset) <= GROUP_DRAIN_RANGE_SQUARED then
+				group[#group + 1] = enemy
 			end
 		end
+	end
+
+	return group
+end
+
+local function FindAliveGroupTarget(group, anchorPosition)
+	local closestTarget
+	local closestDistance
+
+	for i = 1, #group do
+		local enemy = group[i]
+		local Humanoid = enemy.Parent and enemy:FindFirstChildOfClass("Humanoid")
+		local HumanoidRootPart = enemy.Parent and enemy:FindFirstChild("HumanoidRootPart")
+
+		if Humanoid and HumanoidRootPart and Humanoid.Health > 0 then
+			local offset = HumanoidRootPart.Position - anchorPosition
+			local distanceSquared = offset:Dot(offset)
+			if not closestDistance or distanceSquared < closestDistance then
+				closestTarget = enemy
+				closestDistance = distanceSquared
+			end
+		end
+	end
+
+	return closestTarget
+end
+
+local function MoveAroundTarget(target, meleeOffsetZ, randomDelay)
+	local HumanoidRootPart = target:FindFirstChild("HumanoidRootPart")
+	if not HumanoidRootPart then
+		return
+	end
+
+	EquipWeapon(_G.SelectWeapon)
+	local Character = game.Players.LocalPlayer.Character
+	local Tool = Character and Character:FindFirstChildOfClass("Tool")
+	local ToolTip = Tool and Tool:FindFirstChild("ToolTip") and Tool.ToolTip or ""
+
+	if ToolTip == "Blox Fruit" then
+		_tp(HumanoidRootPart.CFrame * CFrame.new(0, 30, 0) * CFrame.Angles(0, math.rad(90), 0))
+	else
+		_tp(HumanoidRootPart.CFrame * CFrame.new(0, 10, meleeOffsetZ) * CFrame.Angles(0, math.rad(180), 0))
+	end
+
+	if RandomCFrame then
+		task.wait(randomDelay)
+		_tp(HumanoidRootPart.CFrame * CFrame.new(0, 30, 25))
+		task.wait(randomDelay)
+		_tp(HumanoidRootPart.CFrame * CFrame.new(25, 30, 0))
+		task.wait(randomDelay)
+		_tp(HumanoidRootPart.CFrame * CFrame.new(-25, 30, 0))
+		task.wait(randomDelay)
+		_tp(HumanoidRootPart.CFrame * CFrame.new(0, 30, 25))
+		task.wait(randomDelay)
+		_tp(HumanoidRootPart.CFrame * CFrame.new(-25, 30, 0))
 	end
 end
 
-t9.Kill2 = function(p12, p13)
-	if p12 and p13 then
-		if not p12:GetAttribute("Locked") then
-			p12:SetAttribute("Locked", p12.HumanoidRootPart.CFrame)
-		end
-
-		PosMon = p12:GetAttribute("Locked").Position
-		BringEnemy(p12)
-		EquipWeapon(_G.SelectWeapon)
-
-		local Tool = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Tool")
-		local ToolTip = Tool and Tool:FindFirstChild("ToolTip") and Tool.ToolTip
-
-		if (ToolTip or "") == "Blox Fruit" then
-			_tp(p12.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0) * CFrame.Angles(0, math.rad(90), 0))
-		else
-			_tp(p12.HumanoidRootPart.CFrame * CFrame.new(0, 10, 8) * CFrame.Angles(0, math.rad(180), 0))
-		end
-
-		if RandomCFrame then
-			wait(0.1)
-			_tp(p12.HumanoidRootPart.CFrame * CFrame.new(0, 30, 25))
-			wait(0.1)
-			_tp(p12.HumanoidRootPart.CFrame * CFrame.new(25, 30, 0))
-			wait(0.1)
-			_tp(p12.HumanoidRootPart.CFrame * CFrame.new(-25, 30, 0))
-			wait(0.1)
-			_tp(p12.HumanoidRootPart.CFrame * CFrame.new(0, 30, 25))
-			wait(0.1)
-			_tp(p12.HumanoidRootPart.CFrame * CFrame.new(-25, 30, 0))
-		end
+local function KillBroughtGroup(initialTarget, enabled, meleeOffsetZ, randomDelay)
+	local initialRoot = initialTarget and initialTarget:FindFirstChild("HumanoidRootPart")
+	if not enabled or not initialRoot then
+		return
 	end
+
+	if not initialTarget:GetAttribute("Locked") then
+		initialTarget:SetAttribute("Locked", initialRoot.CFrame)
+	end
+
+	local lockedCFrame = initialTarget:GetAttribute("Locked")
+	local anchorPosition = lockedCFrame.Position
+	local group = BuildBroughtGroup(initialTarget, anchorPosition)
+	local firstPass = true
+
+	PosMon = anchorPosition
+	BringEnemy(initialTarget)
+
+	while BugnanaState.Running and _G.Seriality and (firstPass or shouldTween) do
+		firstPass = false
+		local target = FindAliveGroupTarget(group, anchorPosition)
+		if not target then
+			break
+		end
+
+		MoveAroundTarget(target, meleeOffsetZ, randomDelay)
+		task.wait(0.05)
+	end
+end
+
+t9.Kill = function(p10, p11)
+	KillBroughtGroup(p10, p11, 0, 0.5)
+end
+
+t9.Kill2 = function(p12, p13)
+	KillBroughtGroup(p12, p13, 8, 0.1)
 end
 
 do

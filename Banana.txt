@@ -1993,16 +1993,32 @@ local tweenGeneration = 0
 local function CreateBugnanaLerp(root, target, speed, generation)
     local completed = Instance.new("BindableEvent")
     local controller = {
-        Completed = completed.Event,
         PlaybackState = Enum.PlaybackState.Playing,
     }
     local settled = false
+    local finalState
+    -- A normal BindableEvent loses a completion fired before :Wait() begins.
+    -- This wrapper preserves the final state for late subscribers.
+    controller.Completed = {
+        Wait = function()
+            if settled then return finalState end
+            return completed.Event:Wait()
+        end,
+        Connect = function(_, callback)
+            if settled then
+                task.defer(callback, finalState)
+                return { Disconnect = function() end }
+            end
+            return completed.Event:Connect(callback)
+        end,
+    }
     local function finish(state)
         if settled then return end
         settled = true
+        finalState = state
         controller.PlaybackState = state
         completed:Fire(state)
-        task.delay(3, function() completed:Destroy() end)
+        task.delay(30, function() completed:Destroy() end)
     end
     function controller:Cancel()
         finish(Enum.PlaybackState.Cancelled)
@@ -2073,7 +2089,7 @@ _tp = function(p53, skipPortalRoute)
 		local HumanoidRootPart = plr.Character.HumanoidRootPart
 		local exitedSubmerged = false
 
-		getgenv().OnFarm = false
+		-- OnFarm is updated only when a new tween starts or completes.
 		-- Toda tarefa com destino fora da Submerged aciona o Home Point oficial antes de continuar.
 		if sea3 and HumanoidRootPart.Position.Y < -1000 and cFrame3.Position.Y > -1000 then
 			if not ExitSubmergedViaHome() then
@@ -2105,14 +2121,11 @@ _tp = function(p53, skipPortalRoute)
 		-- instantaneo de longa distancia durante uma rota em andamento.
 
 		local Magnitude = (cFrame3.Position - HumanoidRootPart.Position).Magnitude
-if activeFarmTween and activeFarmTween.PlaybackState == Enum.PlaybackState.Playing
-and activeFarmTweenTarget and (activeFarmTweenTarget - cFrame3.Position).Magnitude <= 2.5 then
-return activeFarmTween
-end
 if activeFarmTween and activeFarmTween.PlaybackState == Enum.PlaybackState.Playing then
 activeFarmTween:Cancel()
 end
 tweenGeneration = tweenGeneration + 1
+getgenv().OnFarm = false
 if Magnitude <= 2 then
 getgenv().OnFarm = true
 return nil

@@ -347,74 +347,98 @@ local function FindAliveGroupTarget(group, anchorPosition)
 	return closestTarget
 end
 
+
+local lastCombatMoveAt = -math.huge
+local lastCombatMoveTarget
+local lastCombatMovePosition
+
 local function MoveAroundTarget(target, meleeOffsetZ, randomDelay)
-	local HumanoidRootPart = target:FindFirstChild("HumanoidRootPart")
-	if not HumanoidRootPart then
-		return
-	end
+    local targetRoot = target:FindFirstChild("HumanoidRootPart")
+    if not targetRoot then return end
 
-	EquipWeapon(_G.SelectWeapon)
-	local Character = game.Players.LocalPlayer.Character
-	local Tool = Character and Character:FindFirstChildOfClass("Tool")
-	local ToolTip = Tool and Tool:FindFirstChild("ToolTip") and Tool.ToolTip or ""
+    EquipWeapon(_G.SelectWeapon)
+    local character = game.Players.LocalPlayer.Character
+    local tool = character and character:FindFirstChildOfClass("Tool")
+    local desiredCFrame
+    if tool and tool.ToolTip == "Blox Fruit" then
+        desiredCFrame = targetRoot.CFrame * CFrame.new(0, 30, 0) * CFrame.Angles(0, math.rad(90), 0)
+    else
+        desiredCFrame = targetRoot.CFrame * CFrame.new(0, 10, meleeOffsetZ) * CFrame.Angles(0, math.rad(180), 0)
+    end
 
-	if ToolTip == "Blox Fruit" then
-		_tp(HumanoidRootPart.CFrame * CFrame.new(0, 30, 0) * CFrame.Angles(0, math.rad(90), 0))
-	else
-		_tp(HumanoidRootPart.CFrame * CFrame.new(0, 10, meleeOffsetZ) * CFrame.Angles(0, math.rad(180), 0))
-	end
+    -- Evita cancelar/criar um novo tween vinte vezes por segundo.
+    local now = os.clock()
+    if not RandomCFrame and lastCombatMoveTarget == target
+        and now - lastCombatMoveAt < 0.35
+        and lastCombatMovePosition
+        and (desiredCFrame.Position - lastCombatMovePosition).Magnitude < 8 then
+        return
+    end
 
-	if RandomCFrame then
-		task.wait(randomDelay)
-		_tp(HumanoidRootPart.CFrame * CFrame.new(0, 30, 25))
-		task.wait(randomDelay)
-		_tp(HumanoidRootPart.CFrame * CFrame.new(25, 30, 0))
-		task.wait(randomDelay)
-		_tp(HumanoidRootPart.CFrame * CFrame.new(-25, 30, 0))
-		task.wait(randomDelay)
-		_tp(HumanoidRootPart.CFrame * CFrame.new(0, 30, 25))
-		task.wait(randomDelay)
-		_tp(HumanoidRootPart.CFrame * CFrame.new(-25, 30, 0))
-	end
+    lastCombatMoveAt = now
+    lastCombatMoveTarget = target
+    lastCombatMovePosition = desiredCFrame.Position
+    -- A aproximacao do farm nunca tenta um portal durante a luta.
+    _tp(desiredCFrame, true)
+
+    if RandomCFrame then
+        for _, offset in ipairs({
+            Vector3.new(0, 30, 25),
+            Vector3.new(25, 30, 0),
+            Vector3.new(-25, 30, 0),
+            Vector3.new(0, 30, 25),
+            Vector3.new(-25, 30, 0)
+        }) do
+            if not BugnanaState.Running or not shouldTween then break end
+            task.wait(randomDelay)
+            _tp(targetRoot.CFrame * CFrame.new(offset), true)
+        end
+    end
 end
 
 local function KillBroughtGroup(initialTarget, enabled, meleeOffsetZ, randomDelay)
-	local initialRoot = initialTarget and initialTarget:FindFirstChild("HumanoidRootPart")
-	if not enabled or not initialRoot then
-		return
-	end
+    local initialRoot = initialTarget and initialTarget:FindFirstChild("HumanoidRootPart")
+    if not enabled or not initialRoot then return end
 
-	if not initialTarget:GetAttribute("Locked") then
-		initialTarget:SetAttribute("Locked", initialRoot.CFrame)
-	end
+    if not initialTarget:GetAttribute("Locked") then
+        initialTarget:SetAttribute("Locked", initialRoot.CFrame)
+    end
+    local lockedCFrame = initialTarget:GetAttribute("Locked")
+    local anchorPosition = lockedCFrame.Position
+    local group = BuildBroughtGroup(initialTarget, anchorPosition)
+    local groupState = { Targets = group, Name = initialTarget.Name }
+    local nextRefresh = os.clock() + 0.35
+    local firstPass = true
 
-	local lockedCFrame = initialTarget:GetAttribute("Locked")
-	local anchorPosition = lockedCFrame.Position
-	local group = BuildBroughtGroup(initialTarget, anchorPosition)
-	local groupState = { Targets = group }
-	local firstPass = true
+    ActiveBroughtGroupState = groupState
+    PosMon = anchorPosition
+    BringEnemy(initialTarget)
 
-	ActiveBroughtGroupState = groupState
-	PosMon = anchorPosition
-	BringEnemy(initialTarget)
+    while BugnanaState.Running and _G.Seriality and (firstPass or shouldTween) do
+        if ActiveBroughtGroupState ~= groupState then break end
+        firstPass = false
 
-	while BugnanaState.Running and _G.Seriality and (firstPass or shouldTween) do
-		firstPass = false
-		local target = FindAliveGroupTarget(group, anchorPosition)
-		if not target then
-			break
-		end
+        local now = os.clock()
+        if now >= nextRefresh then
+            -- Atualiza alvos vivos/respawnados sem varrer o workspace a cada ataque.
+            local refreshed = BuildBroughtGroup(initialTarget, anchorPosition)
+            table.clear(group)
+            for i = 1, #refreshed do
+                group[i] = refreshed[i]
+            end
+            nextRefresh = now + 0.35
+        end
 
-		BringEnemy(target)
-		MoveAroundTarget(target, meleeOffsetZ, randomDelay)
-		task.wait(0.05)
-	end
-
-	if ActiveBroughtGroupState == groupState then
-		ActiveBroughtGroupState = nil
-	end
+        local target = FindAliveGroupTarget(group, anchorPosition)
+        if not target then break end
+        BringEnemy(target)
+        MoveAroundTarget(target, meleeOffsetZ, randomDelay)
+        task.wait(0.05)
+    end
+    if ActiveBroughtGroupState == groupState then
+        ActiveBroughtGroupState = nil
+    end
 end
-
 t9.Kill = function(p10, p11)
 	KillBroughtGroup(p10, p11, 0, 0.5)
 end
@@ -577,128 +601,105 @@ statsSetings = function(p22, p23)
 		replicated.Remotes.CommF_:InvokeServer("AddPoint", "Demon Fruit", p23)
 	end
 end
+
 local lastBringTarget, lastBringAt = nil, 0
 local lastSimulationRadiusAt = -math.huge
 
 local function RefreshSimulationRadius()
-	if not sethiddenproperty then
-		return
-	end
-
-	local now = os.clock()
-	if now - lastSimulationRadiusAt < SIMULATION_RADIUS_REFRESH then
-		return
-	end
-
-	lastSimulationRadiusAt = now
-	sethiddenproperty(plr, "SimulationRadius", BRING_RANGE + 200)
+    if type(sethiddenproperty) ~= "function" then return end
+    local now = os.clock()
+    if now - lastSimulationRadiusAt < SIMULATION_RADIUS_REFRESH then return end
+    lastSimulationRadiusAt = now
+    -- Falha de permissao nao deve abortar o agrupamento inteiro.
+    pcall(sethiddenproperty, plr, "SimulationRadius", BRING_RANGE + 200)
 end
 
-BringEnemy = function(p24)
-	if not _B then
-		return
-	end
+local function CanBringRoot(root)
+    if root.Anchored then return false end
+    if type(isnetworkowner) == "function" then
+        local success, owned = pcall(isnetworkowner, root)
+        if success then return owned == true end
+    end
+    local success, age = pcall(function() return root.ReceiveAge end)
+    return success and age == 0
+end
 
-	if not p24 then
-		local HumanoidRootPart = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+BringEnemy = function(target)
+    if not BugnanaState.Running or not _B then return end
 
-		if not HumanoidRootPart then
-			return
-		end
+    if not target then
+        local playerRoot = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+        if not playerRoot then return end
+        local bestDistance = math.huge
+        for _, enemy in ipairs(Enemies:GetChildren()) do
+            local humanoid = enemy:FindFirstChildOfClass("Humanoid")
+            local root = enemy:FindFirstChild("HumanoidRootPart")
+            if humanoid and root and humanoid.Health > 0 then
+                local offset = root.Position - playerRoot.Position
+                local distance = offset:Dot(offset)
+                if distance < bestDistance then
+                    bestDistance, target = distance, enemy
+                end
+            end
+        end
+        if not target then return end
+    end
 
-		local huge = math.huge
+    local now = os.clock()
+    if lastBringTarget == target and now - lastBringAt < BRING_INTERVAL then return end
+    lastBringTarget, lastBringAt = target, now
+    RefreshSimulationRadius()
 
-		for _, child in ipairs(workspace.Enemies:GetChildren()) do
-			local Humanoid = child:FindFirstChildOfClass("Humanoid")
-			local HumanoidRootPart2 = child:FindFirstChild("HumanoidRootPart")
+    local targetRoot = target:FindFirstChild("HumanoidRootPart")
+    if not targetRoot or target.Parent ~= Enemies then return end
+    local targetPosition = targetRoot.Position
+    local groupState = ActiveBroughtGroupState
+    local candidates = (groupState and groupState.Name == target.Name and groupState.Targets) or Enemies:GetChildren()
 
-			if Humanoid and HumanoidRootPart2 and Humanoid.Health > 0 then
-				local Magnitude = (HumanoidRootPart2.Position - HumanoidRootPart.Position).Magnitude
+    for _, enemy in ipairs(candidates) do
+        if enemy ~= target and enemy.Parent == Enemies and enemy.Name == target.Name then
+            local humanoid = enemy:FindFirstChildOfClass("Humanoid")
+            local root = enemy:FindFirstChild("HumanoidRootPart")
+            if humanoid and root and humanoid.Health > 0 then
+                local offset = root.Position - targetPosition
+                local distanceSquared = offset:Dot(offset)
+                if distanceSquared <= BRING_RANGE_SQUARED then
+                    -- O estabilizador antigo de 1e9 de forca gerava custo de fisica
+                    -- e podia manter partes presas mesmo depois de trocar de farm.
+                    local oldVelocity = root:FindFirstChild("BugnanaBringVelocity")
+                    if oldVelocity then pcall(function() oldVelocity:Destroy() end) end
+                    if CanBringRoot(root) then
+                        -- Isola falha de rede/fisica por NPC; nao aborta os demais.
+                        pcall(function()
+                            if distanceSquared > 64 then
+                                root.CFrame = targetRoot.CFrame
+                            end
+                            if root.AssemblyLinearVelocity.Magnitude > 0.1 then
+                                root.AssemblyLinearVelocity = Vector3.zero
+                            end
+                            if root.AssemblyAngularVelocity.Magnitude > 0.1 then
+                                root.AssemblyAngularVelocity = Vector3.zero
+                            end
+                            if root.CanCollide then root.CanCollide = false end
+                            if humanoid.WalkSpeed ~= 0 then humanoid.WalkSpeed = 0 end
+                            if humanoid.JumpPower ~= 0 then humanoid.JumpPower = 0 end
+                            if humanoid.AutoRotate then humanoid.AutoRotate = false end
+                        end)
+                    end
+                end
+            end
+        end
+    end
 
-				if Magnitude < huge then
-					huge = Magnitude
-					p24 = child
-				end
-			end
-		end
-
-		if not p24 then
-			return
-		end
-	end
-
-	local now = os.clock()
-	if lastBringTarget == p24 and now - lastBringAt < BRING_INTERVAL then
-		return
-	end
-	lastBringTarget, lastBringAt = p24, now
-
-	local function v35(p25)
-		local Humanoid = p25:FindFirstChildOfClass("Humanoid")
-		local HumanoidRootPart = p25:FindFirstChild("HumanoidRootPart")
-
-		return Humanoid and HumanoidRootPart and Humanoid.Health > 0, HumanoidRootPart, Humanoid
-	end
-	local function v38(p26)
-		if isnetworkowner then
-			return isnetworkowner(p26)
-		end
-
-		return p26.ReceiveAge == 0 and not p26.Anchored
-	end
-
-	pcall(function()
-		RefreshSimulationRadius()
-
-		local targetRoot = p24:FindFirstChild("HumanoidRootPart")
-		if not targetRoot then
-			return
-		end
-
-		local Position = targetRoot.Position
-
-		for _, child in ipairs(workspace.Enemies:GetChildren()) do
-			if child ~= p24 and child.Name == p24.Name then
-				local v42, v43, v44 = v35(child)
-
-				if v42 then
-					local offset = v43.Position - Position
-					local distanceSquared = offset:Dot(offset)
-
-					if distanceSquared <= BRING_RANGE_SQUARED then
-						local stabilizer = v43:FindFirstChild("BugnanaBringVelocity") or v43:FindFirstChild("BodyVelocity")
-						if not stabilizer or not stabilizer:IsA("BodyVelocity") then
-							local BodyVelocity = Instance.new("BodyVelocity")
-
-							BodyVelocity.Name = "BugnanaBringVelocity"
-							BodyVelocity.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-							BodyVelocity.Velocity = Vector3.zero
-							BodyVelocity.Parent = v43
-						end
-
-						if distanceSquared > 100 and v38(v43) then
-							v43.CFrame = targetRoot.CFrame
-							v43.AssemblyLinearVelocity = Vector3.zero
-							v43.AssemblyAngularVelocity = Vector3.zero
-						end
-
-						if v43.CanCollide then v43.CanCollide = false end
-						if v44.WalkSpeed ~= 0 then v44.WalkSpeed = 0 end
-						if v44.JumpPower ~= 0 then v44.JumpPower = 0 end
-						if v44.AutoRotate then v44.AutoRotate = false end
-					end
-				end
-			end
-		end
-
-		local targetHumanoid = p24 and p24:FindFirstChildOfClass("Humanoid")
-		if targetRoot and targetHumanoid then
-			if targetRoot.CanCollide then targetRoot.CanCollide = false end
-			if targetHumanoid.WalkSpeed ~= 0 then targetHumanoid.WalkSpeed = 0 end
-			if targetHumanoid.JumpPower ~= 0 then targetHumanoid.JumpPower = 0 end
-			if targetHumanoid.AutoRotate then targetHumanoid.AutoRotate = false end
-		end
-	end)
+    local targetHumanoid = target:FindFirstChildOfClass("Humanoid")
+    if targetHumanoid and targetHumanoid.Health > 0 and CanBringRoot(targetRoot) then
+        pcall(function()
+            if targetRoot.CanCollide then targetRoot.CanCollide = false end
+            if targetHumanoid.WalkSpeed ~= 0 then targetHumanoid.WalkSpeed = 0 end
+            if targetHumanoid.JumpPower ~= 0 then targetHumanoid.JumpPower = 0 end
+            if targetHumanoid.AutoRotate then targetHumanoid.AutoRotate = false end
+        end)
+    end
 end
 
 do
@@ -31359,7 +31360,7 @@ local characters = v1570(Workspace, "Characters")
 local modules = v1570(ReplicatedStorage4, "Modules")
 local net = v1570(modules, "Net")
 local t54 = {
-	Rate = 0.05,
+	Rate = 0.075,
 	Enabled = true
 }
 
@@ -31390,7 +31391,6 @@ local function BindCombatContainer(container)
 end
 
 BindCombatContainer(enemies)
-BindCombatContainer(characters)
 
 local function AppendCombatTarget(model, record, Character, HumanoidRootPart, ignoreDistance, targetCount)
 	if model == Character or not model.Parent then
@@ -31457,7 +31457,7 @@ local function CollectCombatTargets(Character, HumanoidRootPart)
 			end
 
 			if record then
-				targetCount = AppendCombatTarget(model, record, Character, HumanoidRootPart, true, targetCount)
+				targetCount = AppendCombatTarget(model, record, Character, HumanoidRootPart, false, targetCount)
 			end
 		end
 	else
@@ -31566,31 +31566,42 @@ local secureTargetSnapshot = {}
 local lastRegisterHitKey
 local encodedRegisterHit
 
+
 local function ExecuteSecureAttack()
-	if not u1599 or not attribute or not latestSecureHead or latestSecureTargetCount < 1 then
-		return
-	end
+    if not BugnanaState.Running or not u1599 or not attribute
+        or not latestSecureHead or latestSecureTargetCount < 1 then
+        return
+    end
 
-	table.clear(secureTargetSnapshot)
-	for i = 1, latestSecureTargetCount do
-		secureTargetSnapshot[i] = hitTargetBuffer[i]
-	end
+    -- Copia cada par em vez de compartilhar payloads mutaveis de outros ticks.
+    -- Remove NPCs que morreram/sairam antes da confirmacao da chamada remota.
+    table.clear(secureTargetSnapshot)
+    for i = 1, latestSecureTargetCount do
+        local payload = hitTargetBuffer[i]
+        local model = payload and payload[1]
+        local part = payload and payload[2]
+        if model and model.Parent == enemies and part and part.Parent then
+            local humanoid = model:FindFirstChildOfClass("Humanoid")
+            if humanoid and humanoid.Health > 0 then
+                secureTargetSnapshot[#secureTargetSnapshot + 1] = { model, part }
+            end
+        end
+    end
+    if #secureTargetSnapshot == 0 then return end
 
-	local Head = latestSecureHead
-	local response = modules.Net.seed:InvokeServer()
-	local registerHitKey = math.floor(Workspace:GetServerTimeNow() / 10 % 10) + 1
-
-	if registerHitKey ~= lastRegisterHitKey then
-		lastRegisterHitKey = registerHitKey
-		encodedRegisterHit = string.gsub("RE/RegisterHit", ".", function(character)
-			return string.char(bit32.bxor(string.byte(character), registerHitKey))
-		end)
-	end
-
-	local encodedResponse = bit32.bxor(attribute + 909090, response * 2)
-	cloneref(u1599):FireServer(encodedRegisterHit, encodedResponse, Head, secureTargetSnapshot)
+    local head = secureTargetSnapshot[1][2]
+    local response = modules.Net.seed:InvokeServer()
+    if not BugnanaState.Running then return end
+    local registerHitKey = math.floor(Workspace:GetServerTimeNow() / 10 % 10) + 1
+    if registerHitKey ~= lastRegisterHitKey then
+        lastRegisterHitKey = registerHitKey
+        encodedRegisterHit = string.gsub("RE/RegisterHit", ".", function(character)
+            return string.char(bit32.bxor(string.byte(character), registerHitKey))
+        end)
+    end
+    local encodedResponse = bit32.bxor(attribute + 909090, response * 2)
+    cloneref(u1599):FireServer(encodedRegisterHit, encodedResponse, head, secureTargetSnapshot)
 end
-
 local function v1626()
 	require(ReplicatedStorage4.Util.CameraShaker):Stop()
 end
@@ -31674,7 +31685,7 @@ do
 			end
 		end)
 		BugnanaSpawn(function()
-			while task.wait(0.1) do
+			while task.wait(0.16) do
 				if _G.Seriality and IsBugnanaCombatFarmActive() then
 					pcall(ExecuteSecureAttack)
 				else

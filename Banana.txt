@@ -87,10 +87,14 @@ Brazier3 = false
 Sec = 0.1
 ClickState = 0
 Num_self = 25
-local BRING_RANGE = 650
+local BRING_RANGE = 1200
 local BRING_RANGE_SQUARED = BRING_RANGE * BRING_RANGE
 local BRING_INTERVAL = 0.12
+local BRING_MOVE_STEP = 85
+local BRING_MAX_PER_PASS = 20
 local SIMULATION_RADIUS_REFRESH = 2
+-- O toggle inicia ligado na interface. Nao depender do callback para habilitar.
+_B = true
 local ActiveBroughtGroupState
 
 do
@@ -406,7 +410,7 @@ local function KillBroughtGroup(initialTarget, enabled, meleeOffsetZ, randomDela
     local lockedCFrame = initialTarget:GetAttribute("Locked")
     local anchorPosition = lockedCFrame.Position
     local group = BuildBroughtGroup(initialTarget, anchorPosition)
-    local groupState = { Targets = group, Name = initialTarget.Name }
+    local groupState = { Targets = group, Name = initialTarget.Name, Anchor = anchorPosition }
     local nextRefresh = os.clock() + 0.35
     local firstPass = true
 
@@ -602,15 +606,19 @@ statsSetings = function(p22, p23)
 	end
 end
 
-local lastBringTarget, lastBringAt = nil, 0
+
+local lastBringAt = -math.huge
+local lastBringCursor = 0
 local lastSimulationRadiusAt = -math.huge
+local lastBringReportAt = -math.huge
+local bringStats = { candidates = 0, inRange = 0, owned = 0, attempted = 0, notOwned = 0, failures = 0 }
 
 local function RefreshSimulationRadius()
     if type(sethiddenproperty) ~= "function" then return end
     local now = os.clock()
     if now - lastSimulationRadiusAt < SIMULATION_RADIUS_REFRESH then return end
     lastSimulationRadiusAt = now
-    -- Falha de permissao nao deve abortar o agrupamento inteiro.
+    -- Aumenta a area solicitada, mas a propriedade nao concede posse de rede.
     pcall(sethiddenproperty, plr, "SimulationRadius", BRING_RANGE + 200)
 end
 
@@ -618,14 +626,27 @@ local function CanBringRoot(root)
     if root.Anchored then return false end
     if type(isnetworkowner) == "function" then
         local success, owned = pcall(isnetworkowner, root)
-        if success then return owned == true end
+        if success and type(owned) == "boolean" then return owned end
     end
     local success, age = pcall(function() return root.ReceiveAge end)
-    return success and age == 0
+    return success and type(age) == "number" and age == 0
+end
+
+local function ReportBringStats(now)
+    if now - lastBringReportAt < 4 then return end
+    lastBringReportAt = now
+    if _G.BugnanaBringDebug then
+        print(string.format(
+            "[Bugnana Bring] raio=%d | examinados=%d | em raio=%d | com posse=%d | tentativas=%d | sem posse=%d | erros=%d",
+            BRING_RANGE, bringStats.candidates, bringStats.inRange, bringStats.owned,
+            bringStats.attempted, bringStats.notOwned, bringStats.failures
+        ))
+    end
+    for key in pairs(bringStats) do bringStats[key] = 0 end
 end
 
 BringEnemy = function(target)
-    if not BugnanaState.Running or not _B then return end
+    if not BugnanaState.Running or _B ~= true then return end
 
     if not target then
         local playerRoot = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
@@ -646,33 +667,49 @@ BringEnemy = function(target)
     end
 
     local now = os.clock()
-    if lastBringTarget == target and now - lastBringAt < BRING_INTERVAL then return end
-    lastBringTarget, lastBringAt = target, now
+    -- Limitacao GLOBAL: alternar o target nao deve disparar varios brings/tick.
+    if now - lastBringAt < BRING_INTERVAL then return end
+    lastBringAt = now
     RefreshSimulationRadius()
 
     local targetRoot = target:FindFirstChild("HumanoidRootPart")
-    if not targetRoot or target.Parent ~= Enemies then return end
-    local targetPosition = targetRoot.Position
-    local groupState = ActiveBroughtGroupState
-    local candidates = (groupState and groupState.Name == target.Name and groupState.Targets) or Enemies:GetChildren()
+    if target.Parent ~= Enemies or not targetRoot then return end
 
-    for _, enemy in ipairs(candidates) do
-        if enemy ~= target and enemy.Parent == Enemies and enemy.Name == target.Name then
+    -- Fixar todos na mesma posicao do farm, mesmo quando o alvo principal muda.
+    local groupState = ActiveBroughtGroupState
+    local groupMatches = groupState and groupState.Name == target.Name and groupState.Targets
+    local anchor = groupMatches and groupState.Anchor or targetRoot.Position
+    local candidates = groupMatches or Enemies:GetChildren()
+    local count = #candidates
+    if count == 0 then return end
+
+    -- Processa lotes rotativos para evitar queda de FPS ao ampliar a area.
+    local batchSize = math.min(count, BRING_MAX_PER_PASS)
+    local firstIndex = lastBringCursor % count
+    lastBringCursor = (lastBringCursor + batchSize) % count
+    for step = 1, batchSize do
+        local enemy = candidates[((firstIndex + step - 1) % count) + 1]
+        if enemy and enemy.Parent == Enemies and enemy.Name == target.Name then
+            bringStats.candidates += 1
             local humanoid = enemy:FindFirstChildOfClass("Humanoid")
             local root = enemy:FindFirstChild("HumanoidRootPart")
             if humanoid and root and humanoid.Health > 0 then
-                local offset = root.Position - targetPosition
+                local offset = anchor - root.Position
                 local distanceSquared = offset:Dot(offset)
                 if distanceSquared <= BRING_RANGE_SQUARED then
-                    -- O estabilizador antigo de 1e9 de forca gerava custo de fisica
-                    -- e podia manter partes presas mesmo depois de trocar de farm.
+                    bringStats.inRange += 1
                     local oldVelocity = root:FindFirstChild("BugnanaBringVelocity")
                     if oldVelocity then pcall(function() oldVelocity:Destroy() end) end
                     if CanBringRoot(root) then
-                        -- Isola falha de rede/fisica por NPC; nao aborta os demais.
-                        pcall(function()
-                            if distanceSquared > 64 then
-                                root.CFrame = targetRoot.CFrame
+                        bringStats.owned += 1
+                        local success = pcall(function()
+                            -- Longas distancias por passos curtos: nao mover 1200 studs
+                            -- instantaneamente e nao criar BodyVelocity ou novos tweens.
+                            if distanceSquared > 16 then
+                                local distance = math.sqrt(distanceSquared)
+                                local stride = offset * (math.min(BRING_MOVE_STEP, distance) / distance)
+                                root.CFrame = root.CFrame + stride
+                                bringStats.attempted += 1
                             end
                             if root.AssemblyLinearVelocity.Magnitude > 0.1 then
                                 root.AssemblyLinearVelocity = Vector3.zero
@@ -685,22 +722,17 @@ BringEnemy = function(target)
                             if humanoid.JumpPower ~= 0 then humanoid.JumpPower = 0 end
                             if humanoid.AutoRotate then humanoid.AutoRotate = false end
                         end)
+                        if not success then bringStats.failures += 1 end
+                    else
+                        bringStats.notOwned += 1
                     end
                 end
             end
         end
     end
-
-    local targetHumanoid = target:FindFirstChildOfClass("Humanoid")
-    if targetHumanoid and targetHumanoid.Health > 0 and CanBringRoot(targetRoot) then
-        pcall(function()
-            if targetRoot.CanCollide then targetRoot.CanCollide = false end
-            if targetHumanoid.WalkSpeed ~= 0 then targetHumanoid.WalkSpeed = 0 end
-            if targetHumanoid.JumpPower ~= 0 then targetHumanoid.JumpPower = 0 end
-            if targetHumanoid.AutoRotate then targetHumanoid.AutoRotate = false end
-        end)
-    end
+    ReportBringStats(now)
 end
+
 
 do
 	local function v47(p27, p28)
@@ -6831,7 +6863,7 @@ end
 
 do
 	Bringmob = GRP_Settings_Settings_Configure:AddToggle("Bring_Mobs", {
-		Text = "Bring Mobs",
+		Text = "Bring Mobs (1200 studs)",
 		Default = true,
 		Callback = function(p134)
 			_B = p134

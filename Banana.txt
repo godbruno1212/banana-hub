@@ -31527,69 +31527,86 @@ local modules = v1570(ReplicatedStorage4, "Modules")
 local net = v1570(modules, "Net")
 local t54 = {
 	Rate = 0.05,
-	Enabled = true,
-	IsAlive = function(p363)
-		local Humanoid = p363:FindFirstChild("Humanoid")
-
-		if Humanoid and Humanoid.Health > 0 then
-			return true
-		end
-
-		return false
-	end,
-	GetNearbyTargets = function(p364, p365)
-		local Position = p364:GetPivot().Position
-		local t56 = {}
-		local children = p365:GetChildren()
-
-		for i = 1, #children do
-			local v1582 = children[i]
-			local Humanoid = v1582:FindFirstChild("Humanoid")
-			local HumanoidRootPart = v1582:FindFirstChild("HumanoidRootPart")
-
-			if Humanoid and HumanoidRootPart and Humanoid.Health > 0 and (HumanoidRootPart.Position - Position).Magnitude <= 60 then
-				table.insert(t56, v1582)
-			end
-		end
-
-		return t56
-	end
+	Enabled = true
 }
 
-local function getTargetParts(p366)
-	local t57 = {}
+local trackedCombatTargets = {}
+local hitTargetBuffer = {}
+local latestSecureHead
+local latestSecureTargetCount = 0
 
-	for i = 1, #p366 do
-		local v1588 = p366[i]
-		local Head = v1588:FindFirstChild("Head") or v1588.PrimaryPart
+local function TrackCombatTarget(model)
+	if not model or trackedCombatTargets[model] then
+		return
+	end
 
-		if Head then
-			table.insert(t57, {
-				v1588,
-				Head
-			})
+	trackedCombatTargets[model] = { Model = model }
+end
+
+local function UntrackCombatTarget(model)
+	trackedCombatTargets[model] = nil
+end
+
+local function BindCombatContainer(container)
+	for _, model in ipairs(container:GetChildren()) do
+		TrackCombatTarget(model)
+	end
+
+	BugnanaConnect(container.ChildAdded, TrackCombatTarget)
+	BugnanaConnect(container.ChildRemoved, UntrackCombatTarget)
+end
+
+BindCombatContainer(enemies)
+BindCombatContainer(characters)
+
+local function CollectCombatTargets(Character, HumanoidRootPart)
+	table.clear(hitTargetBuffer)
+	local targetCount = 0
+
+	for model, record in pairs(trackedCombatTargets) do
+		if model ~= Character and model.Parent then
+			local Humanoid = record.Humanoid
+			if not Humanoid or Humanoid.Parent ~= model then
+				Humanoid = model:FindFirstChildOfClass("Humanoid")
+				record.Humanoid = Humanoid
+			end
+
+			local targetRoot = record.Root
+			if not targetRoot or targetRoot.Parent ~= model then
+				targetRoot = model:FindFirstChild("HumanoidRootPart")
+				record.Root = targetRoot
+			end
+
+			if Humanoid and targetRoot and Humanoid.Health > 0 then
+				local offset = targetRoot.Position - HumanoidRootPart.Position
+				if offset:Dot(offset) <= 3600 then
+					local hitPart = record.HitPart
+					if not hitPart or not hitPart.Parent then
+						hitPart = model:FindFirstChild("Head") or targetRoot or model.PrimaryPart
+						record.HitPart = hitPart
+					end
+
+					if hitPart then
+						local payload = record.Payload
+						if not payload then
+							payload = { model, hitPart }
+							record.Payload = payload
+						else
+							payload[1] = model
+							payload[2] = hitPart
+						end
+
+						targetCount = targetCount + 1
+						hitTargetBuffer[targetCount] = payload
+					end
+				end
+			end
 		end
 	end
 
-	return t57
+	return targetCount
 end
 
-t54.GetTargetParts = getTargetParts
-t54.GetAllTargets = function(p367)
-	local v1590 = t54.GetNearbyTargets(p367, enemies)
-	local v1591 = t54.GetNearbyTargets(p367, characters)
-	local t58 = {}
-
-	for i = 1, #v1590 do
-		table.insert(t58, v1590[i])
-	end
-
-	for i = 1, #v1591 do
-		table.insert(t58, v1591[i])
-	end
-
-	return t58
-end
 t54.ExecuteFastAttack = function()
 	local Character = LocalPlayer3.Character
 
@@ -31597,26 +31614,22 @@ t54.ExecuteFastAttack = function()
 		return
 	end
 
-	if not Character:FindFirstChildOfClass("Tool") then
+	local Tool = Character:FindFirstChildOfClass("Tool")
+	local HumanoidRootPart = Character:FindFirstChild("HumanoidRootPart")
+
+	if not Tool or not HumanoidRootPart then
 		return
 	end
 
-	local v1596 = t54.GetAllTargets(Character)
-
-	if #v1596 < 1 then
-		return
-	end
-
-	local v1597 = t54.GetTargetParts(v1596)
-
-	if #v1597 < 1 then
+	local targetCount = CollectCombatTargets(Character, HumanoidRootPart)
+	if targetCount < 1 then
 		return
 	end
 
 	local reRegisterHit = net["RE/RegisterHit"]
 
 	net["RE/RegisterAttack"]:FireServer(t54.Rate)
-	reRegisterHit:FireServer(v1597[1][2], v1597)
+	reRegisterHit:FireServer(hitTargetBuffer[1][2], hitTargetBuffer)
 end
 
 local u1599
@@ -31664,59 +31677,57 @@ local t55 = {
 			return
 		end
 
-		local t59 = {}
-		local targetCount = 0
-
-		local function v1610(p368)
-			local children = p368:GetChildren()
-
-			for i = 1, #children do
-				local v1613 = children[i]
-				local Humanoid = v1613:FindFirstChild("Humanoid")
-				local HumanoidRootPart2 = v1613:FindFirstChild("HumanoidRootPart")
-
-				local offset = HumanoidRootPart2 and HumanoidRootPart2.Position - HumanoidRootPart.Position
-				if Humanoid and Humanoid.Health > 0 and v1613 ~= Character and offset and offset:Dot(offset) <= 3600 then
-					local hitPart = v1613:FindFirstChild("Head") or HumanoidRootPart2 or v1613.PrimaryPart
-					if hitPart then
-						targetCount = targetCount + 1
-						t59[targetCount] = { v1613, hitPart }
-					end
-				end
-			end
-		end
-
-		v1610(enemies)
-		v1610(characters)
-
 		local Tool = Character:FindFirstChildOfClass("Tool")
+		local weaponType = Tool and Tool:GetAttribute("WeaponType")
 
-		if #t59 > 0 and Tool and (Tool:GetAttribute("WeaponType") == "Melee" or Tool:GetAttribute("WeaponType") == "Sword") then
-			local response = modules.Net.seed:InvokeServer()
-			local reRegisterHit = net["RE/RegisterHit"]
-
-			net["RE/RegisterAttack"]:FireServer()
-
-			local Head = t59[1][1]:FindFirstChild("Head")
-
-			if not Head then
-				return
-			end
-
-			reRegisterHit:FireServer(Head, t59, {})
-
-			if u1599 then
-				local v1623 = math.floor(Workspace:GetServerTimeNow() / 10 % 10) + 1
-				local RegisterHit = string.gsub("RE/RegisterHit", ".", function(p369)
-					return string.char(bit32.bxor(string.byte(p369), v1623))
-				end)
-				local v1625 = bit32.bxor(attribute + 909090, response * 2)
-
-				cloneref(u1599):FireServer(RegisterHit, v1625, Head, t59)
-			end
+		if weaponType ~= "Melee" and weaponType ~= "Sword" then
+			return
 		end
+
+		local targetCount = CollectCombatTargets(Character, HumanoidRootPart)
+		if targetCount < 1 then
+			latestSecureHead = nil
+			latestSecureTargetCount = 0
+			return
+		end
+
+		local Head = hitTargetBuffer[1][2]
+		net["RE/RegisterAttack"]:FireServer(t54.Rate)
+		net["RE/RegisterHit"]:FireServer(Head, hitTargetBuffer, {})
+
+		latestSecureHead = Head
+		latestSecureTargetCount = targetCount
 	end
 }
+
+local secureTargetSnapshot = {}
+local lastRegisterHitKey
+local encodedRegisterHit
+
+local function ExecuteSecureAttack()
+	if not u1599 or not attribute or not latestSecureHead or latestSecureTargetCount < 1 then
+		return
+	end
+
+	table.clear(secureTargetSnapshot)
+	for i = 1, latestSecureTargetCount do
+		secureTargetSnapshot[i] = hitTargetBuffer[i]
+	end
+
+	local Head = latestSecureHead
+	local response = modules.Net.seed:InvokeServer()
+	local registerHitKey = math.floor(Workspace:GetServerTimeNow() / 10 % 10) + 1
+
+	if registerHitKey ~= lastRegisterHitKey then
+		lastRegisterHitKey = registerHitKey
+		encodedRegisterHit = string.gsub("RE/RegisterHit", ".", function(character)
+			return string.char(bit32.bxor(string.byte(character), registerHitKey))
+		end)
+	end
+
+	local encodedResponse = bit32.bxor(attribute + 909090, response * 2)
+	cloneref(u1599):FireServer(encodedRegisterHit, encodedResponse, Head, secureTargetSnapshot)
+end
 
 local function v1626()
 	require(ReplicatedStorage4.Util.CameraShaker):Stop()
@@ -31781,7 +31792,7 @@ end
 do
 	local function v1627()
 		BugnanaSpawn(function()
-			while task.wait(0.1) do
+			while task.wait(t54.Rate) do
 				if IsBugnanaCombatFarmActive() then
 					local Character = LocalPlayer3.Character
 					local Tool = Character and Character:FindFirstChildOfClass("Tool")
@@ -31790,8 +31801,20 @@ do
 					if weaponType == "Melee" or weaponType == "Sword" then
 						pcall(t55.Execute)
 					else
+						latestSecureHead = nil
+						latestSecureTargetCount = 0
 						pcall(t54.ExecuteFastAttack)
 					end
+				end
+			end
+		end)
+		BugnanaSpawn(function()
+			while task.wait(0.1) do
+				if IsBugnanaCombatFarmActive() then
+					pcall(ExecuteSecureAttack)
+				else
+					latestSecureHead = nil
+					latestSecureTargetCount = 0
 				end
 			end
 		end)

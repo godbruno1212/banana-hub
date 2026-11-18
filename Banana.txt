@@ -1842,13 +1842,13 @@ do
 		local buttonBar = mainGui and mainGui:FindFirstChild("HUDButtonBar")
 		local homeButton = buttonBar and buttonBar:FindFirstChild("HomeButton")
 		if not homeButton or not homeButton:IsA("GuiButton") then
-			warn("[Desgraça Hub] Não encontrei Main.HUDButtonBar.HomeButton; saída cancelada sem alterar o personagem.")
+			warn("[Bugnana Hub] Não encontrei Main.HUDButtonBar.HomeButton; saída cancelada sem alterar o personagem.")
 			return false
 		end
 
 		SubmergedExitBusy = true
 		local ok, returnedHome = pcall(function()
-			warn("[Desgraça Hub] Acionando o callback original do botão Home para voltar ao Home Point salvo.")
+			warn("[Bugnana Hub] Acionando o callback original do botão Home para voltar ao Home Point salvo.")
 			if not homeButton.Visible or not homeButton.Active then
 				error("O botão Home não está visível ou ativo.")
 			end
@@ -1876,12 +1876,12 @@ do
 		SubmergedExitBusy = false
 		if not ok or not returnedHome then
 			SubmergedExitCooldownUntil = os.clock() + 5
-			warn("[Desgraça Hub] O botão Home foi acionado, mas não consegui confirmar a saída da Submerged Island: " .. tostring(returnedHome))
+			warn("[Bugnana Hub] O botão Home foi acionado, mas não consegui confirmar a saída da Submerged Island: " .. tostring(returnedHome))
 			return false
 		end
 
 		SubmergedExitCooldownUntil = 0
-		warn("[Desgraça Hub] Retorno pelo Home Point confirmado. Continuando a tarefa.")
+		warn("[Bugnana Hub] Retorno pelo Home Point confirmado. Continuando a tarefa.")
 		return true
 	end
 
@@ -2745,7 +2745,7 @@ end
 
 local lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/bloxfruitsnokey/Banana/refs/heads/main/Banana/ui.luau"))()
 local v237 = lib:CreateWindow({
-	Title = "Desgraça Hub",
+	Title = "Bugnana Hub",
 	Subtitle = "Blox Fruit Script",
 	Image = "rbxassetid://5009915795"
 })
@@ -2786,7 +2786,7 @@ local function BugnanaShutdown()
         getgenv().ReadyForGuiLoaded = true
         getgenv().UIToggled = false
     end)
-    print("[Desgraça Hub] Script encerrado. Execute a versão atualizada para iniciar novamente.")
+    print("[Bugnana Hub] Script encerrado. Execute a versão atualizada para iniciar novamente.")
 end
 
 BugnanaEnv.__BugnanaShutdown = BugnanaShutdown
@@ -5808,7 +5808,7 @@ BugnanaSpawn(function()
 			pcall(function()
 				local selected = getgenv().SelectMaterial
 				if not selected or not MaterialMon(selected) then
-					warn("[Desgraça Hub] Material não configurado para este Sea.")
+					warn("[Bugnana Hub] Material não configurado para este Sea.")
 					getgenv().AutoMaterial = false
 					return
 				end
@@ -30885,7 +30885,7 @@ GRP_Shop_Fragments_shop:AddButton({
 			_G.Teleport = previousTeleport
 
 			if not arrived then
-				warn("[Desgraça Hub] Não consegui chegar ao Dragon Wizard; compra cancelada.")
+				warn("[Bugnana Hub] Não consegui chegar ao Dragon Wizard; compra cancelada.")
 				return
 			end
 
@@ -31934,8 +31934,8 @@ do
 end
 
 lib:Notify({
-	Title = "Desgraça Hub",
-	Description = "Desgraça Hub comeback",
+	Title = "Bugnana Hub",
+	Description = "Bugnana Hub comeback",
 	Icon = "rbxassetid://5009915795",
 	Duration = 5
 })

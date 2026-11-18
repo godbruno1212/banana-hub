@@ -31471,7 +31471,7 @@ local characters = v1570(Workspace, "Characters")
 local modules = v1570(ReplicatedStorage4, "Modules")
 local net = v1570(modules, "Net")
 local t54 = {
-	Rate = 0.075,
+	Rate = 0.05,
 	Enabled = true
 }
 
@@ -31584,9 +31584,11 @@ local function CollectCombatTargets(Character, HumanoidRootPart)
             append(groupState.Targets[i])
         end
     end
-    for _, enemy in ipairs(enemies:GetChildren()) do
-        append(enemy)
-    end
+    -- Live registry is maintained by ChildAdded / ChildRemoved.
+-- Avoid GetChildren() allocations on every 50ms attack.
+for enemy in pairs(trackedCombatTargets) do
+    append(enemy)
+end
 
     table.clear(rotatedHitBuffer)
     if targetCount > 1 then
@@ -31594,7 +31596,7 @@ local function CollectCombatTargets(Character, HumanoidRootPart)
         -- pacote. Alternar quem vem primeiro evita deixar os mesmos 4-5
         -- recebendo dano o tempo todo, SEM criar remotes adicionais.
         local startIndex = (hitRotationCursor % targetCount) + 1
-        hitRotationCursor += 4
+        hitRotationCursor += math.min(12, targetCount)
         if startIndex ~= 1 then
             for i = 1, targetCount do
                 rotatedHitBuffer[i] = hitTargetBuffer[((i + startIndex - 2) % targetCount) + 1]
@@ -31605,7 +31607,14 @@ local function CollectCombatTargets(Character, HumanoidRootPart)
         end
     end
 
-    if _G.BugnanaCombatDebug then
+    -- Bound each attack packet. Round-robin ordering covers larger groups
+-- across ticks rather than sending oversized packets repeatedly.
+if targetCount > 12 then
+    for i = 13, targetCount do hitTargetBuffer[i] = nil end
+    targetCount = 12
+end
+
+if _G.BugnanaCombatDebug then
         -- Diagnostico opcional. Queda de HP nao comprova causalidade, mas
         -- ajuda a diferenciar selecao de alvos de rejeicao no servidor.
         for i = 1, targetCount do

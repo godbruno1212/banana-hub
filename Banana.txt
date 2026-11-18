@@ -91,6 +91,7 @@ local BRING_RANGE = 650
 local BRING_RANGE_SQUARED = BRING_RANGE * BRING_RANGE
 local BRING_INTERVAL = 0.12
 local SIMULATION_RADIUS_REFRESH = 2
+local ActiveBroughtGroupState
 
 do
 	local Loading
@@ -390,8 +391,10 @@ local function KillBroughtGroup(initialTarget, enabled, meleeOffsetZ, randomDela
 	local lockedCFrame = initialTarget:GetAttribute("Locked")
 	local anchorPosition = lockedCFrame.Position
 	local group = BuildBroughtGroup(initialTarget, anchorPosition)
+	local groupState = { Targets = group }
 	local firstPass = true
 
+	ActiveBroughtGroupState = groupState
 	PosMon = anchorPosition
 	BringEnemy(initialTarget)
 
@@ -405,6 +408,10 @@ local function KillBroughtGroup(initialTarget, enabled, meleeOffsetZ, randomDela
 		BringEnemy(target)
 		MoveAroundTarget(target, meleeOffsetZ, randomDelay)
 		task.wait(0.05)
+	end
+
+	if ActiveBroughtGroupState == groupState then
+		ActiveBroughtGroupState = nil
 	end
 end
 
@@ -31385,48 +31392,77 @@ end
 BindCombatContainer(enemies)
 BindCombatContainer(characters)
 
+local function AppendCombatTarget(model, record, Character, HumanoidRootPart, ignoreDistance, targetCount)
+	if model == Character or not model.Parent then
+		return targetCount
+	end
+
+	local Humanoid = record.Humanoid
+	if not Humanoid or Humanoid.Parent ~= model then
+		Humanoid = model:FindFirstChildOfClass("Humanoid")
+		record.Humanoid = Humanoid
+	end
+
+	local targetRoot = record.Root
+	if not targetRoot or targetRoot.Parent ~= model then
+		targetRoot = model:FindFirstChild("HumanoidRootPart")
+		record.Root = targetRoot
+	end
+
+	if not Humanoid or not targetRoot or Humanoid.Health <= 0 then
+		return targetCount
+	end
+
+	local offset = targetRoot.Position - HumanoidRootPart.Position
+	if not ignoreDistance and offset:Dot(offset) > 3600 then
+		return targetCount
+	end
+
+	local hitPart = record.HitPart
+	if not hitPart or not hitPart.Parent then
+		hitPart = model:FindFirstChild("Head") or targetRoot or model.PrimaryPart
+		record.HitPart = hitPart
+	end
+
+	if not hitPart then
+		return targetCount
+	end
+
+	local payload = record.Payload
+	if not payload then
+		payload = { model, hitPart }
+		record.Payload = payload
+	else
+		payload[1] = model
+		payload[2] = hitPart
+	end
+
+	targetCount = targetCount + 1
+	hitTargetBuffer[targetCount] = payload
+	return targetCount
+end
+
 local function CollectCombatTargets(Character, HumanoidRootPart)
 	table.clear(hitTargetBuffer)
 	local targetCount = 0
+	local groupState = ActiveBroughtGroupState
 
-	for model, record in pairs(trackedCombatTargets) do
-		if model ~= Character and model.Parent then
-			local Humanoid = record.Humanoid
-			if not Humanoid or Humanoid.Parent ~= model then
-				Humanoid = model:FindFirstChildOfClass("Humanoid")
-				record.Humanoid = Humanoid
+	if groupState and groupState.Targets then
+		for i = 1, #groupState.Targets do
+			local model = groupState.Targets[i]
+			local record = trackedCombatTargets[model]
+			if not record then
+				TrackCombatTarget(model)
+				record = trackedCombatTargets[model]
 			end
 
-			local targetRoot = record.Root
-			if not targetRoot or targetRoot.Parent ~= model then
-				targetRoot = model:FindFirstChild("HumanoidRootPart")
-				record.Root = targetRoot
+			if record then
+				targetCount = AppendCombatTarget(model, record, Character, HumanoidRootPart, true, targetCount)
 			end
-
-			if Humanoid and targetRoot and Humanoid.Health > 0 then
-				local offset = targetRoot.Position - HumanoidRootPart.Position
-				if offset:Dot(offset) <= 3600 then
-					local hitPart = record.HitPart
-					if not hitPart or not hitPart.Parent then
-						hitPart = model:FindFirstChild("Head") or targetRoot or model.PrimaryPart
-						record.HitPart = hitPart
-					end
-
-					if hitPart then
-						local payload = record.Payload
-						if not payload then
-							payload = { model, hitPart }
-							record.Payload = payload
-						else
-							payload[1] = model
-							payload[2] = hitPart
-						end
-
-						targetCount = targetCount + 1
-						hitTargetBuffer[targetCount] = payload
-					end
-				end
-			end
+		end
+	else
+		for model, record in pairs(trackedCombatTargets) do
+			targetCount = AppendCombatTarget(model, record, Character, HumanoidRootPart, false, targetCount)
 		end
 	end
 
